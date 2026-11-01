@@ -1,0 +1,163 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "asspas.store Database Blueprint",
+  "description": "Firestore database schema for asspas.store local commerce directory, 3x3 matrix referrals, goods vs services, and shops.",
+  "entities": {
+    "users": {
+      "path": "users/{userId}",
+      "description": "Registered user profile with referral privilege state and points",
+      "fields": {
+        "id": { "type": "string", "description": "Firebase Auth UID" },
+        "name": { "type": "string", "description": "User display name" },
+        "email": { "type": "string", "description": "User email address" },
+        "photoURL": { "type": "string", "description": "User profile avatar" },
+        "phone": { "type": "string", "description": "Contact number" },
+        "role": { "type": "string", "enum": ["user", "admin"], "description": "Account role" },
+        "referralCode": { "type": "string", "description": "Unique referral code" },
+        "referredBy": { "type": "string", "description": "Referral code of inviter, or null if direct signup" },
+        "hasReferralPrivileges": { "type": "boolean", "description": "True only if registered via valid referral code" },
+        "matrixParentId": { "type": "string", "description": "UID of parent node in 3x3 tree with spillover" },
+        "matrixLevel": { "type": "number", "description": "Level in the tree hierarchy" },
+        "points": { "type": "number", "description": "Available rewards points" },
+        "shopsCount": { "type": "number", "description": "Number of active shops created by this user" },
+        "createdAt": { "type": "string", "description": "ISO timestamp" },
+        "updatedAt": { "type": "string", "description": "ISO timestamp" }
+      },
+      "required": ["id", "email", "name", "role", "referralCode", "points"]
+    },
+    "admins": {
+      "path": "admins/{adminId}",
+      "description": "Designated administrator access registry",
+      "fields": {
+        "id": { "type": "string", "description": "Admin UID" },
+        "email": { "type": "string", "description": "Admin email" },
+        "role": { "type": "string", "enum": ["admin", "superadmin"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "email", "role"]
+    },
+    "shops": {
+      "path": "shops/{shopId}",
+      "description": "Verified local business and service listings",
+      "fields": {
+        "id": { "type": "string", "description": "Unique shop ID" },
+        "name": { "type": "string", "description": "Business or shop name" },
+        "category": { "type": "string", "description": "Primary business category" },
+        "subCategory": { "type": "string", "description": "Secondary niche or subcategory" },
+        "itemType": { "type": "string", "enum": ["goods", "services", "both"], "description": "Classification: Goods, Services, or Both" },
+        "shopType": { "type": "string", "description": "Retail, Wholesale, Restaurant, Service Provider" },
+        "rating": { "type": "number" },
+        "reviewsCount": { "type": "number" },
+        "address": { "type": "string" },
+        "area": { "type": "string" },
+        "city": { "type": "string" },
+        "province": { "type": "string" },
+        "isOpen": { "type": "boolean" },
+        "openingHours": { "type": "string" },
+        "phone": { "type": "string" },
+        "whatsapp": { "type": "string" },
+        "email": { "type": "string" },
+        "hasEleganciaWater": { "type": "boolean" },
+        "eleganciaDetails": { "type": "object" },
+        "tags": { "type": "array" },
+        "image": { "type": "string" },
+        "images": { "type": "array" },
+        "coords": { "type": "object" },
+        "verified": { "type": "boolean" },
+        "featured": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["approved", "pending", "suspended"] },
+        "ownerId": { "type": "string" },
+        "ownerName": { "type": "string" },
+        "description": { "type": "string" },
+        "followersCount": { "type": "number" },
+        "unlockedBadges": { "type": "array" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "itemType", "ownerId", "city", "phone"]
+    },
+    "categories": {
+      "path": "categories/{categoryId}",
+      "description": "Catalog of goods and service categories with typo aliases for fuzzy match",
+      "fields": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["goods", "services", "both"] },
+        "icon": { "type": "string" },
+        "subcategories": { "type": "array" },
+        "aliases": { "type": "array" },
+        "order": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "name", "type"]
+    },
+    "referrals": {
+      "path": "referrals/{referralId}",
+      "description": "3x3 network matrix referral nodes and hierarchy",
+      "fields": {
+        "id": { "type": "string" },
+        "inviterId": { "type": "string" },
+        "inviteeId": { "type": "string" },
+        "inviteeName": { "type": "string" },
+        "codeUsed": { "type": "string" },
+        "matrixSlot": { "type": "number" },
+        "level": { "type": "number" },
+        "status": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "inviterId", "inviteeId", "codeUsed"]
+    },
+    "pointsLedger": {
+      "path": "pointsLedger/{entryId}",
+      "description": "Immutable ledger tracking points credits and debits",
+      "fields": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "eventType": { "type": "string", "enum": ["referral_signup", "referred_first_shop", "shop_created", "admin_adjustment", "redemption"] },
+        "points": { "type": "number" },
+        "balanceAfter": { "type": "number" },
+        "referenceId": { "type": "string" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "eventType", "points", "createdAt"]
+    },
+    "followers": {
+      "path": "followers/{followId}",
+      "description": "Shop follower mapping preventing duplicates and self-follows",
+      "fields": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "shopId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "shopId"]
+    },
+    "adminSettings": {
+      "path": "adminSettings/{settingId}",
+      "description": "System configuration, follower thresholds, and referral reward values",
+      "fields": {
+        "id": { "type": "string" },
+        "followerThresholds": { "type": "array" },
+        "referralPoints": { "type": "object" },
+        "maintenanceMode": { "type": "boolean" },
+        "maxDirectReferrals": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id"]
+    },
+    "auditLogs": {
+      "path": "auditLogs/{logId}",
+      "description": "Admin action history and modifications log",
+      "fields": {
+        "id": { "type": "string" },
+        "adminId": { "type": "string" },
+        "adminEmail": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "object" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "adminId", "action", "timestamp"]
+    }
+  }
+}

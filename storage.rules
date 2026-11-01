@@ -1,0 +1,19 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /shops/{ownerId}/{shopId}/{allImages=**} {
+      // Anyone can read storefront photos
+      allow read: if true;
+      // Authenticated users can upload photos for their store or admin can manage
+      allow write: if request.auth != null && (
+        request.auth.uid == ownerId ||
+        request.auth.uid == 'mbDWdPHMyIM7QXRMaZa1igMjBWq2'
+      ) && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+    match /{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+  }
+}

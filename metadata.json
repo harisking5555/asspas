@@ -1,0 +1,6 @@
+{
+  "name": "asspas.store - Local Shops, Elegancia Water & Nearby Deals",
+  "description": "asspas.store - Discover nearby local shops, grocery stores, pharmacies, and verified Elegancia Mineral Water stockists with live radius distance and Google Maps.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
