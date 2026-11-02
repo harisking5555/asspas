@@ -33,32 +33,75 @@ interface AddShopModalProps {
   onNavigateToMyStores?: () => void;
 }
 
-// Built-in verified categories dictionary with spelling hints
+// Built-in verified categories dictionary sorted alphabetically (A-Z)
 const DEFAULT_EXPANDED_CATEGORIES: string[] = [
-  'Grocery & Daily Needs',
-  'Fashion & Clothing',
-  'Electronics & Mobiles',
-  'Pharmacy & Health',
-  'Food & Restaurants',
-  'Home & Living',
-  'Beauty & Personal Care',
-  'Sports & Toys',
-  'Books & Stationery',
-  'Automotive & Repairs',
-  'Professional Services',
-  'Tailoring & Boutiques',
-  'Home Maintenance & Repair',
-  'Hardware & Building Materials',
-  'Bakery & Sweets',
-  'Jewelry & Watches',
-  'Optics & Eyewear',
-  'Furniture & Carpets',
-  'Printing & Graphics',
-  'Computer & IT Services',
-  'Dry Cleaners & Laundry',
-  'Veterinary & Pet Care',
-  'Gym & Fitness Centers',
-  'Real Estate & Property',
+  'Agricultural Supplies & Seeds',
+  'Air Conditioning & Refrigeration',
+  'Aluminium & Glass Works',
+  'Arts, Crafts & Paintings',
+  'Automotive & Spare Parts',
+  'Baby Care & Kids Wear',
+  'Bakery, Cakes & Sweets',
+  'Banks & Currency Exchange',
+  'Barber & Men Grooming Salon',
+  'Beauty Parlour & Women Salon',
+  'Bicycles, Motorbikes & Repairs',
+  'Books, Quran & Islamic Stationery',
+  'Building Materials & Cement',
+  'Carpets, Rugs & Flooring',
+  'Catering, Event & Wedding Services',
+  'Cell Phones & Mobile Accessories',
+  'Cloth Market, Fabric & Unstitched',
+  'Computer, Laptops & IT Hardware',
+  'Courier, Cargo & Delivery Services',
+  'Crockery & Kitchenware',
+  'Curtains, Blinds & Home Decor',
+  'Dentists & Dental Clinics',
+  'Dry Cleaners & Steam Laundry',
+  'Dry Fruits, Nuts & Spices',
+  'Educational Academies & Home Tutors',
+  'Electrical & Sanitary Fittings',
+  'Electronics & Home Appliances',
+  'Eyewear, Glasses & Optical Centers',
+  'Fashion & Ready-Made Garments',
+  'Fish, Poultry, Beef & Mutton',
+  'Florists & Fresh Flowers',
+  'Footwear & Shoes Store',
+  'Furniture & Woodworking',
+  'General Store & Kiryana',
+  'Gifts, Perfumes & Watches',
+  'Graphic Designing & Printing Press',
+  'Grocery & Supermarkets',
+  'Gym, Fitness & Supplements',
+  'Hardware & Hand Tools',
+  'Home Maintenance, Plumbing & Electrician',
+  'Hospitals, Laboratories & Diagnostic',
+  'Hotels, Hostels & Guest Houses',
+  'Jewelry, Gold & Gemstones',
+  'Lawyers & Legal Consultants',
+  'Luggage, Bags & Leather Goods',
+  'Meat, Chicken & BBQ Ingredients',
+  'Medical Stores & 24/7 Pharmacies',
+  'Opticians & Eye Specialists',
+  'Organic Food & Fresh Milk/Dairy',
+  'Packaging Materials & Corrugated Boxes',
+  'Paints, Polish & Hardware',
+  'Pet Care, Animals & Veterinary',
+  'Photographers & Video Production',
+  'Property Dealers & Real Estate',
+  'Restaurants, Cafe & Fast Food',
+  'Security Systems & CCTV Cameras',
+  'Solar Energy, Inverters & Batteries',
+  'Sports Equipment, Cricket & Fitness',
+  'Stationery & Office Supplies',
+  'Tailoring, Stitching & Embroidery',
+  'Tires, Batteries & Wheel Alignment',
+  'Toys, Gaming & Novelties',
+  'Travel & Umrah/Hajj Agencies',
+  'Vegetables & Fresh Fruit Vendors',
+  'Water Filtration & Mineral Water Supplies',
+  'Wholesale Distribution Hub',
+  'Other / Uncategorized (Write Below)'
 ];
 
 export const AddShopModal: React.FC<AddShopModalProps> = ({
@@ -97,14 +140,15 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
   const [streetOrPlaza, setStreetOrPlaza] = useState('');
   const [openAddress, setOpenAddress] = useState(''); // Open address field for areas without street numbers
 
-  // 6. Contact Details (3 Phone numbers + 1 selected for primary orders)
-  const [phone1, setPhone1] = useState(userProfile?.phone || '0308-5599766');
+  // 6. Contact Details (3 Phone numbers + 1 selected for primary orders - NO developer hardcoded defaults)
+  const [phone1, setPhone1] = useState(userProfile?.phone || '');
   const [phone2, setPhone2] = useState('');
   const [phone3, setPhone3] = useState('');
   const [orderPhoneIndex, setOrderPhoneIndex] = useState<number>(0);
-  const [whatsapp, setWhatsapp] = useState('923085599766');
+  const [whatsapp, setWhatsapp] = useState(userProfile?.phone || '');
   const [email, setEmail] = useState(userProfile?.email || '');
   const [openingHours, setOpeningHours] = useState('09:00 AM - 10:00 PM');
+  const [isCustomTiming, setIsCustomTiming] = useState(false);
 
   // 7. Manual GPS Coordinates or Map Link Paste
   const [latInput, setLatInput] = useState('34.0151');
@@ -113,7 +157,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
   // 8. Elegancia Water Checkbox (Default unchecked per user instruction)
   const [hasEleganciaWater, setHasEleganciaWater] = useState<boolean>(false);
-  const [eleganciaSizes, setEleganciaSizes] = useState<string[]>(['500ml Bottled', '1.5L Family Pack']);
+  const [eleganciaSizes, setEleganciaSizes] = useState<string[]>(['500ml Bottled', '1.5L Family Pack', '19L Dispenser Can']);
   const [isChilled, setIsChilled] = useState<boolean>(true);
 
   // 9. Photos (Single or Multiple with admin-friendly format)
@@ -228,9 +272,32 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
       return;
     }
 
+    const digits1 = phone1.replace(/\D/g, '');
+    if (digits1.length < 10 || digits1.length > 12) {
+      setErrorMsg('Primary Phone 1 must be a valid 11-digit Pakistani phone number (e.g. 0300-1234567).');
+      return;
+    }
+
+    if (phone2.trim()) {
+      const digits2 = phone2.replace(/\D/g, '');
+      if (digits2.length < 10 || digits2.length > 12) {
+        setErrorMsg('Phone 2 must be a valid 11-digit phone number or left empty.');
+        return;
+      }
+    }
+
+    if (phone3.trim()) {
+      const digits3 = phone3.replace(/\D/g, '');
+      if (digits3.length < 9 || digits3.length > 12) {
+        setErrorMsg('Phone 3 must be a valid phone number (10-12 digits) or left empty.');
+        return;
+      }
+    }
+
     const constructedAddress = [
       streetOrPlaza.trim(),
       marketOrBazar.trim() ? `Market: ${marketOrBazar.trim()}` : '',
+      unionCouncil.trim() ? `UC: ${unionCouncil.trim()}` : '',
       openAddress.trim(),
     ].filter(Boolean).join(', ') || 'Main Commercial Area';
 
@@ -262,6 +329,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
       const parsedLng = parseFloat(lngInput) || 71.5249;
 
       const phones = [phone1.trim(), phone2.trim(), phone3.trim()].filter(Boolean);
+      const chosenPrimaryPhone = phones[orderPhoneIndex] || phones[0] || phone1.trim();
 
       const shopPayload: Omit<Shop, 'id' | 'followersCount' | 'unlockedBadges'> = {
         name: name.trim(),
@@ -278,10 +346,10 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
         province,
         isOpen: true,
         openingHours,
-        phone: phones[orderPhoneIndex] || phones[0] || '0308-5599766',
+        phone: chosenPrimaryPhone,
         phones,
         orderPhoneIndex,
-        whatsapp: (whatsapp || phones[0] || '923085599766').replace(/\D/g, ''),
+        whatsapp: (whatsapp || chosenPrimaryPhone).replace(/\D/g, ''),
         email: email.trim() || currentUser.email || 'business@asspas.store',
         hasEleganciaWater,
         eleganciaDetails: hasEleganciaWater
@@ -483,12 +551,14 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                 <select
                   value={shopType}
                   onChange={(e) => setShopType(e.target.value as Exclude<ShopType, 'All Shops'>)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium cursor-pointer"
                 >
-                  <option value="Retail Store">Retail Store</option>
-                  <option value="Wholesale">Wholesale Market</option>
-                  <option value="Restaurant / Cafe">Restaurant / Cafe / Food</option>
-                  <option value="Service Provider">Service Provider</option>
+                  <option value="Retail Store">Retail Store (پرچون دکان)</option>
+                  <option value="Wholesale">Wholesale Market (تھوک مارکیٹ)</option>
+                  <option value="Producer / Manufacturer">Producer / Manufacturer (کارخانہ / مینوفیکچرر)</option>
+                  <option value="Dealer / Distributor">Dealer / Distributor (ڈیلر / ڈسٹری بیوٹر)</option>
+                  <option value="Restaurant / Cafe">Restaurant / Cafe / Food (ہوٹل یا فوڈ پوائنٹ)</option>
+                  <option value="Service Provider">Service Provider (سروس یا ہنر)</option>
                 </select>
               </div>
 
@@ -499,7 +569,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Peshawar General Store"
+                  placeholder="e.g. Peshawar General Store / Khyber Manufacturers"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
@@ -511,7 +581,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
               <div className="flex items-center justify-between">
                 <label className="font-semibold text-slate-700">
-                  3. Category & Niche (Spellcheck Enabled)
+                  3. Category & Niche (A-Z Alphabetical Order)
                 </label>
                 <button
                   type="button"
@@ -547,7 +617,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                   <select
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium cursor-pointer"
                   >
                     {categoryList.map((cat) => (
                       <option key={cat} value={cat}>
@@ -557,7 +627,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                   </select>
                   <input
                     type="text"
-                    placeholder="Subcategory / Specialty (e.g. English Willow Bats)"
+                    placeholder="Subcategory / Specialty (or write your own custom niche)"
                     value={subCategory}
                     onChange={(e) => setSubCategory(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
@@ -566,126 +636,204 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
               )}
             </div>
 
-            {/* 4. Shop Location & Google Maps Link (Simple & Direct per user requirement) */}
+            {/* 4. Complete Location Hierarchy & GPS Coordinates */}
             <div className="p-4 bg-emerald-50/60 border border-emerald-200/90 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
                 <label className="font-bold text-slate-900 text-xs flex items-center gap-1.5">
                   <MapPin className="w-4 h-4 text-emerald-600" />
-                  <span>4. Google Maps Location & Shop Address</span>
+                  <span>4. Location Hierarchy & Coordinates (صوبہ، شہر، بازار، لوکیشن)</span>
                   <span className="text-red-500">*</span>
                 </label>
                 <span className="text-[10px] text-emerald-800 font-bold bg-white px-2 py-0.5 rounded border border-emerald-200">
-                  Google Maps Link
+                  Step 4 of 7
                 </span>
               </div>
 
-              {/* Prominent Google Maps Link Paste Box */}
-              <div>
-                <span className="text-[11px] font-bold text-slate-700 block mb-1">
-                  Google Maps Location Link (گوگل میپ کی لوکیشن کا لنک یہاں پیسٹ کریں)
-                </span>
-                <div className="relative">
-                  <input
-                    type="url"
-                    placeholder="https://maps.app.goo.gl/... or https://maps.google.com/..."
-                    value={googleMapsUrlInput}
-                    onChange={(e) => handleParseMapLink(e.target.value)}
-                    className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
-                  />
-                </div>
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Open Google Maps on mobile/PC ➔ Search your shop/building ➔ Click Share & Copy Link ➔ Paste here.
-                </p>
-              </div>
-
-              {/* City and Area selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+              {/* Province & City Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div>
-                  <span className="text-[10px] font-bold text-slate-700 block mb-1">City (شہر)</span>
+                  <span className="text-[10px] font-bold text-slate-700 block mb-1">Province (صوبہ) *</span>
                   <select
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-semibold"
+                    value={province}
+                    onChange={(e) => {
+                      const newProv = e.target.value;
+                      setProvince(newProv);
+                      const pObj = PAKISTAN_REGIONS.find((p) => p.name === newProv);
+                      if (pObj && pObj.cities.length > 0) {
+                        setCity(pObj.cities[0].name);
+                      }
+                    }}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-semibold cursor-pointer"
                   >
-                    {ALL_PAKISTAN_CITIES.map((c) => (
-                      <option key={c.name} value={c.name}>
-                        {c.name} ({c.province})
+                    {PAKISTAN_REGIONS.map((p) => (
+                      <option key={p.name} value={p.name}>
+                        {p.name}
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div>
-                  <span className="text-[10px] font-bold text-slate-700 block mb-1">Bazar / Area Name (علاقہ یا بازار)</span>
+                  <span className="text-[10px] font-bold text-slate-700 block mb-1">City in {province} (شہر) *</span>
+                  <select
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-semibold cursor-pointer"
+                  >
+                    {availableCities.map((cName) => (
+                      <option key={cName} value={cName}>
+                        {cName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Union Council (UC) & Market/Bazar */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-700 block mb-1">Union Council (UC) / Sector</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. UC 24 / Hayatabad Phase 3 / Cantt"
+                    value={unionCouncil}
+                    onChange={(e) => setUnionCouncil(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-700 block mb-1">Market / Commercial Bazar *</span>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Saddar Bazar / Hayatabad Phase 3 / Cantt"
+                    placeholder="e.g. Saddar Bazar / Karkhano / Anarkali"
                     value={marketOrBazar}
                     onChange={(e) => setMarketOrBazar(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
                   />
                 </div>
               </div>
 
-              {/* Complete Address */}
-              <div>
-                <span className="text-[10px] font-bold text-slate-700 block mb-1">
-                  Complete Shop Address / Plaza / Landmark (دکان کا پتہ یا قریبی نشانی)
+              {/* Plaza / Street / Open Address */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <span className="text-[10px] font-bold text-slate-700 block mb-1">Street / Plaza / Shop Number</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Shop #14, Ground Floor, Deans Trade Center"
+                    value={streetOrPlaza}
+                    onChange={(e) => setStreetOrPlaza(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <span className="text-[10px] font-bold text-slate-700 block mb-1">Open Address / Nearest Landmark</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. Near Jamia Masjid or GT Road Flyover"
+                    value={openAddress}
+                    onChange={(e) => setOpenAddress(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+              </div>
+
+              {/* GPS Coordinates & Google Maps Link */}
+              <div className="pt-2 border-t border-emerald-200/80 space-y-2">
+                <span className="text-[11px] font-bold text-slate-800 block">
+                  Precise GPS Coordinates & Google Maps Link (ڈائریکٹ نمبرز یا گوگل میپ کا لنک)
                 </span>
-                <input
-                  type="text"
-                  placeholder="e.g. Shop #14, Ground Floor, Deans Trade Center, GT Road"
-                  value={streetOrPlaza}
-                  onChange={(e) => setStreetOrPlaza(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500"
-                />
+                
+                {/* Google Maps link input */}
+                <div>
+                  <input
+                    type="url"
+                    placeholder="Paste Google Maps Share Link (e.g. https://maps.app.goo.gl/...)"
+                    value={googleMapsUrlInput}
+                    onChange={(e) => handleParseMapLink(e.target.value)}
+                    className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+
+                {/* Manual Latitude & Longitude inputs */}
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div>
+                    <span className="text-[10px] font-medium text-slate-600 block mb-0.5">Latitude (دستی نمبر درج کریں)</span>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 34.0151"
+                      value={latInput}
+                      onChange={(e) => setLatInput(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-medium text-slate-600 block mb-0.5">Longitude (دستی نمبر درج کریں)</span>
+                    <input
+                      type="number"
+                      step="any"
+                      placeholder="e.g. 71.5249"
+                      value={lngInput}
+                      onChange={(e) => setLngInput(e.target.value)}
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-emerald-500"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
             {/* 5. Contact Options (3 Phone Numbers + 1 Selected for Orders) */}
             <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
               <label className="font-bold text-slate-800 block text-xs">
-                5. Phone Numbers (Add up to 3 numbers & choose 1 primary line for customer orders)
+                5. Phone Numbers (Add up to 3 numbers & choose 1 primary line for customer orders) *
               </label>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                <div className={`p-2 rounded-xl border ${orderPhoneIndex === 0 ? 'bg-emerald-50 border-emerald-400' : 'bg-white border-slate-200'}`}>
+                <div className={`p-2 rounded-xl border ${orderPhoneIndex === 0 ? 'bg-emerald-50 border-emerald-400 ring-1 ring-emerald-300' : 'bg-white border-slate-200'}`}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-[10px] font-bold text-slate-600">Phone 1 (Required)</span>
-                    <input
-                      type="radio"
-                      name="primaryPhone"
-                      checked={orderPhoneIndex === 0}
-                      onChange={() => setOrderPhoneIndex(0)}
-                      className="accent-emerald-600 cursor-pointer"
-                    />
+                    <span className="text-[10px] font-bold text-slate-700">Phone 1 (Required) *</span>
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <span className="text-[9px] text-emerald-800 font-semibold">Primary</span>
+                      <input
+                        type="radio"
+                        name="primaryPhone"
+                        checked={orderPhoneIndex === 0}
+                        onChange={() => setOrderPhoneIndex(0)}
+                        className="accent-emerald-600 cursor-pointer"
+                      />
+                    </label>
                   </div>
                   <input
-                    type="text"
+                    type="tel"
                     required
-                    placeholder="0308-5599766"
+                    placeholder="0300-1234567"
                     value={phone1}
                     onChange={(e) => setPhone1(e.target.value)}
                     className="w-full bg-transparent text-xs outline-none font-medium text-slate-900"
                   />
-                  <span className="text-[9px] text-slate-400">Order Contact</span>
+                  <span className="text-[9px] text-slate-400">Order Contact Line</span>
                 </div>
 
-                <div className={`p-2 rounded-xl border ${orderPhoneIndex === 1 ? 'bg-emerald-50 border-emerald-400' : 'bg-white border-slate-200'}`}>
+                <div className={`p-2 rounded-xl border ${orderPhoneIndex === 1 ? 'bg-emerald-50 border-emerald-400 ring-1 ring-emerald-300' : 'bg-white border-slate-200'}`}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-bold text-slate-600">Phone 2 (Optional)</span>
-                    <input
-                      type="radio"
-                      name="primaryPhone"
-                      checked={orderPhoneIndex === 1}
-                      onChange={() => setOrderPhoneIndex(1)}
-                      className="accent-emerald-600 cursor-pointer"
-                    />
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <span className="text-[9px] text-emerald-800 font-semibold">Primary</span>
+                      <input
+                        type="radio"
+                        name="primaryPhone"
+                        checked={orderPhoneIndex === 1}
+                        onChange={() => setOrderPhoneIndex(1)}
+                        className="accent-emerald-600 cursor-pointer"
+                      />
+                    </label>
                   </div>
                   <input
-                    type="text"
-                    placeholder="0300-1234567"
+                    type="tel"
+                    placeholder="0312-3456789"
                     value={phone2}
                     onChange={(e) => setPhone2(e.target.value)}
                     className="w-full bg-transparent text-xs outline-none font-medium text-slate-900"
@@ -693,20 +841,23 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                   <span className="text-[9px] text-slate-400">Alternate Line</span>
                 </div>
 
-                <div className={`p-2 rounded-xl border ${orderPhoneIndex === 2 ? 'bg-emerald-50 border-emerald-400' : 'bg-white border-slate-200'}`}>
+                <div className={`p-2 rounded-xl border ${orderPhoneIndex === 2 ? 'bg-emerald-50 border-emerald-400 ring-1 ring-emerald-300' : 'bg-white border-slate-200'}`}>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[10px] font-bold text-slate-600">Phone 3 (Optional)</span>
-                    <input
-                      type="radio"
-                      name="primaryPhone"
-                      checked={orderPhoneIndex === 2}
-                      onChange={() => setOrderPhoneIndex(2)}
-                      className="accent-emerald-600 cursor-pointer"
-                    />
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <span className="text-[9px] text-emerald-800 font-semibold">Primary</span>
+                      <input
+                        type="radio"
+                        name="primaryPhone"
+                        checked={orderPhoneIndex === 2}
+                        onChange={() => setOrderPhoneIndex(2)}
+                        className="accent-emerald-600 cursor-pointer"
+                      />
+                    </label>
                   </div>
                   <input
-                    type="text"
-                    placeholder="0312-9876543"
+                    type="tel"
+                    placeholder="091-1234567"
                     value={phone3}
                     onChange={(e) => setPhone3(e.target.value)}
                     className="w-full bg-transparent text-xs outline-none font-medium text-slate-900"
@@ -717,20 +868,20 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                 <div>
-                  <span className="text-[10px] text-slate-500 block mb-1">WhatsApp Number (For Direct Chats)</span>
+                  <span className="text-[10px] text-slate-500 block mb-1">WhatsApp Number (For Direct Website Chats)</span>
                   <input
-                    type="text"
-                    placeholder="923085599766"
+                    type="tel"
+                    placeholder="0300-1234567"
                     value={whatsapp}
                     onChange={(e) => setWhatsapp(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
                   />
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-500 block mb-1">Business Email</span>
+                  <span className="text-[10px] text-slate-500 block mb-1">Business Email (Optional)</span>
                   <input
                     type="email"
-                    placeholder="store@asspas.store"
+                    placeholder="e.g. yourbusiness@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
@@ -739,10 +890,65 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
               </div>
             </div>
 
-            {/* 6. Store Description */}
+            {/* 6. Opening Hours Timing Options */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+              <label className="block font-semibold text-slate-700 text-xs">
+                6. Shop Opening Hours & Timing
+              </label>
+              
+              <div className="flex items-center gap-2 flex-wrap">
+                {[
+                  '09:00 AM - 10:00 PM',
+                  '10:00 AM - 11:00 PM',
+                  '08:00 AM - 08:00 PM',
+                  'Open 24/7',
+                ].map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      setOpeningHours(preset);
+                      setIsCustomTiming(false);
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
+                      openingHours === preset && !isCustomTiming
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300'
+                    }`}
+                  >
+                    {preset}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setIsCustomTiming(true)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
+                    isCustomTiming
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300'
+                  }`}
+                >
+                  Custom Hours...
+                </button>
+              </div>
+
+              {isCustomTiming && (
+                <div className="pt-1">
+                  <input
+                    type="text"
+                    placeholder="e.g. 11:00 AM - 09:00 PM (Friday Closed 1-3 PM)"
+                    value={openingHours}
+                    onChange={(e) => setOpeningHours(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* 7. Store Description */}
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                6. Store / Service Description
+                7. Store / Service Description
               </label>
               <textarea
                 rows={3}

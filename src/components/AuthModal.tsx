@@ -16,10 +16,13 @@ import {
   Camera,
   Upload,
   Share2,
-  Check
+  Check,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { uploadImageToImgBB } from '../services/imageUploadService';
+import { BrandLogo } from './BrandLogo';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -57,6 +60,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [copiedDomain, setCopiedDomain] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // Show/Hide password toggle state
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Inline Profile Editing state
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editPhone, setEditPhone] = useState('');
+  const [editCity, setEditCity] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSuccessMsg, setProfileSuccessMsg] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -217,6 +232,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     </div>
                     <div className="text-[11px] text-slate-500 truncate">{userProfile.email}</div>
+                    {userProfile.phone && (
+                      <div className="text-[11px] text-slate-600 font-medium truncate mt-0.5">📞 {userProfile.phone}</div>
+                    )}
+                    {userProfile.city && (
+                      <div className="text-[10px] text-emerald-800 font-medium">📍 {userProfile.city}</div>
+                    )}
                     {isAdmin && (
                       <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] font-bold">
                         <ShieldCheck className="w-3 h-3" /> System Admin
@@ -225,46 +246,123 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   </div>
                 </div>
 
-                {/* Edit display name and profile picture button */}
-                <div className="flex items-center justify-between pt-2 border-t border-emerald-200/60 text-[11px]">
-                  <label className="text-emerald-800 font-bold hover:underline cursor-pointer flex items-center gap-1">
-                    <span>Change Profile Picture</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => {
-                        if (e.target.files && e.target.files[0]) {
-                          const url = URL.createObjectURL(e.target.files[0]);
-                          updateUserProfile({ photoURL: url });
+                {/* Edit display name, phone, city & photo */}
+                <div className="pt-2 border-t border-emerald-200/60">
+                  {!isEditingProfile ? (
+                    <div className="flex items-center justify-between text-[11px]">
+                      <label className="text-emerald-800 font-bold hover:underline cursor-pointer flex items-center gap-1">
+                        <span>Change Photo</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={handleProfilePhotoChange}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditName(userProfile.name || '');
+                          setEditPhone(userProfile.phone || '');
+                          setEditCity(userProfile.city || 'Peshawar');
+                          setIsEditingProfile(true);
+                        }}
+                        className="text-emerald-800 font-bold hover:underline cursor-pointer flex items-center gap-1"
+                      >
+                        <span>Edit Profile & Phone</span>
+                        <span>✏️</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <form 
+                      onSubmit={async (e) => {
+                        e.preventDefault();
+                        try {
+                          setSavingProfile(true);
+                          await updateUserProfile({
+                            name: editName.trim() || userProfile.name,
+                            phone: editPhone.trim(),
+                            city: editCity.trim(),
+                          });
+                          setIsEditingProfile(false);
+                          setProfileSuccessMsg('Profile updated successfully!');
+                          setTimeout(() => setProfileSuccessMsg(null), 3000);
+                        } catch (err) {
+                          console.warn(err);
+                        } finally {
+                          setSavingProfile(false);
                         }
                       }}
-                    />
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newName = prompt('Enter your full name:', userProfile.name);
-                      if (newName && newName.trim()) {
-                        updateUserProfile({ name: newName.trim() });
-                      }
-                    }}
-                    className="text-slate-600 font-semibold hover:text-emerald-800 cursor-pointer"
-                  >
-                    Edit Name
-                  </button>
+                      className="space-y-2.5 bg-white p-3 rounded-xl border border-emerald-200 shadow-xs"
+                    >
+                      <div className="font-bold text-[11px] text-slate-800">Edit Your Personal Profile</div>
+                      <div>
+                        <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Full Name</label>
+                        <input
+                          type="text"
+                          required
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">Phone (e.g. 0300-1234567)</label>
+                          <input
+                            type="tel"
+                            placeholder="0300-1234567"
+                            value={editPhone}
+                            onChange={(e) => setEditPhone(e.target.value)}
+                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">City</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Peshawar"
+                            value={editCity}
+                            onChange={(e) => setEditCity(e.target.value)}
+                            className="w-full px-2.5 py-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingProfile(false)}
+                          className="px-2.5 py-1 text-[11px] text-slate-500 hover:text-slate-800 cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={savingProfile}
+                          className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold cursor-pointer"
+                        >
+                          {savingProfile ? 'Saving...' : 'Save Profile'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                  {profileSuccessMsg && (
+                    <div className="mt-1 text-[11px] text-emerald-700 font-bold">
+                      ✓ {profileSuccessMsg}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Points & Privileges Card */}
+              {/* Points & Privileges Card with clear PTS Explanation */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3.5 bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-200/60 rounded-2xl">
-                  <div className="text-[11px] text-emerald-800 font-medium">Reward Points (PTS)</div>
+                  <div className="text-[11px] text-emerald-800 font-bold">Reward Points (PTS)</div>
                   <div className="text-xl font-black text-emerald-900 font-['Outfit'] mt-0.5">
                     {userProfile.points} <span className="text-xs font-semibold text-emerald-600">PTS</span>
                   </div>
-                  <p className="text-[10px] text-emerald-700/80 mt-1 leading-tight">
-                    1 Point = 1 PTS earned from referrals & activities
+                  <p className="text-[10px] text-emerald-700 mt-1 leading-tight font-medium">
+                    PTS = Points. 1 Point = 1 PTS earned from referral signups & verified store creation.
                   </p>
                 </div>
 
@@ -632,13 +730,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <div className="relative">
                       <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                       <input
-                        type="password"
+                        type={showPassword ? 'text' : 'password'}
                         required
                         placeholder="••••••••••••"
                         value={passwordInput}
                         onChange={(e) => setPasswordInput(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                        className="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                        title={showPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
 
@@ -651,13 +757,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                       <div className="relative">
                         <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                         <input
-                          type="password"
+                          type={showConfirmPassword ? 'text' : 'password'}
                           required
                           placeholder="Re-enter password"
                           value={confirmPasswordInput}
                           onChange={(e) => setConfirmPasswordInput(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                          className="w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
                         />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
+                          title={showConfirmPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
                       </div>
                     </div>
                   )}

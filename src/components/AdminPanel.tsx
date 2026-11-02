@@ -50,7 +50,7 @@ import {
 } from '../services/adminService';
 import { DEFAULT_CATEGORIES } from '../services/categoryService';
 import { ALL_PAKISTAN_CITIES, PAKISTAN_REGIONS } from '../data/pakistanRegions';
-import { doc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { doc, updateDoc, deleteDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { uploadImageToImgBB } from '../services/imageUploadService';
 
@@ -193,13 +193,37 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newAdPhone, setNewAdPhone] = useState('03085599766');
   const [uploadingAdImage, setUploadingAdImage] = useState(false);
 
-  // Load Settings and Logs on admin login
+  // Load Settings, Logs, and Complaints on admin login
   useEffect(() => {
     if (isAdmin) {
       loadSettings();
       loadLogs();
+      loadComplaints();
     }
   }, [isAdmin]);
+
+  const loadComplaints = async () => {
+    try {
+      const snap = await getDocs(collection(db, 'complaints'));
+      if (!snap.empty) {
+        const loaded: ComplaintItem[] = snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            shopName: data.shopName || 'General Platform',
+            userName: data.userName || 'User',
+            userPhone: data.userPhone || 'Not provided',
+            issue: `[${data.inquiryType || 'Inquiry'}] ${data.issue || ''}`,
+            date: data.createdAt ? new Date(data.createdAt.seconds * 1000).toLocaleDateString() : 'Recent',
+            status: data.status || 'Open',
+          };
+        });
+        setComplaintsList((prev) => [...loaded, ...prev.filter(p => !loaded.some(l => l.id === p.id))]);
+      }
+    } catch (err) {
+      console.warn('Could not load complaints from Firestore:', err);
+    }
+  };
 
   const loadSettings = async () => {
     const s = await fetchAdminSettings();

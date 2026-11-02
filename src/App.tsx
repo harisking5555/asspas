@@ -143,6 +143,21 @@ export default function App() {
     }
   }, []);
 
+  // Direct Shop deep-linking (?shop=ID or /?shop=ID)
+  useEffect(() => {
+    if (shops.length > 0) {
+      const params = new URLSearchParams(window.location.search);
+      const targetShopId = params.get('shop');
+      if (targetShopId) {
+        const found = shops.find((s) => s.id === targetShopId);
+        if (found) {
+          setSelectedShop(found);
+          setDetailShop(found);
+        }
+      }
+    }
+  }, [shops]);
+
   // Sync route state with hash when changing tabs
   const handleSelectTab = (tab: MainNavTab) => {
     setActiveTab(tab);
@@ -827,6 +842,9 @@ export default function App() {
             onOpenAddShop={handleOpenAddShop}
             onSelectShop={(s) => setSelectedShop(s)}
             onOpenDetails={(s) => setDetailShop(s)}
+            onShopUpdated={(updated) =>
+              setShops((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+            }
           />
         </div>
       )}

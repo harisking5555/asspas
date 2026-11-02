@@ -265,3 +265,37 @@ export async function checkIsFollowing(shopId: string, userId: string): Promise<
     return false;
   }
 }
+
+/**
+ * Update general shop information (timings, description, phones, status)
+ */
+export async function updateShopInfo(shopId: string, updates: Partial<Shop>): Promise<boolean> {
+  try {
+    const shopRef = doc(db, 'shops', shopId);
+    await updateDoc(shopRef, {
+      ...updates,
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (err) {
+    console.warn('Error updating shop:', err);
+    return false;
+  }
+}
+
+/**
+ * Update shop product catalog / inventory
+ */
+export async function updateShopCatalog(shopId: string, catalog: any[]): Promise<boolean> {
+  try {
+    const shopRef = doc(db, 'shops', shopId);
+    await updateDoc(shopRef, {
+      catalog,
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (err) {
+    console.warn('Error updating catalog:', err);
+    return false;
+  }
+}

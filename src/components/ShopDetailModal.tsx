@@ -19,9 +19,12 @@ import {
   ChevronLeft,
   ChevronRight,
   PhoneCall,
-  ExternalLink
+  ExternalLink,
+  Package,
+  ShoppingBag,
+  Check
 } from 'lucide-react';
-import { Shop } from '../types';
+import { Shop, CatalogItem } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { toggleFollowShop, checkIsFollowing } from '../services/shopService';
 
@@ -154,6 +157,17 @@ export const ShopDetailModal: React.FC<ShopDetailModalProps> = ({
       );
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2500);
+    }
+  };
+
+  const handleOrderProduct = (productName: string, price: number) => {
+    const text = `Assalam-o-Alaikum ${shop.name}! I would like to order "${productName}" (Rs. ${price}) from your store on asspas.store. Please confirm price, delivery, and stock.`;
+    if (onOpenInAppChat) {
+      onOpenInAppChat(shop, text);
+    } else {
+      const raw = primaryOrderPhone.replace(/[^0-9]/g, '');
+      const phone = raw.startsWith('0') ? '92' + raw.slice(1) : (raw || '923085599766');
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(text)}`, '_blank');
     }
   };
 
@@ -412,6 +426,74 @@ export const ShopDetailModal: React.FC<ShopDetailModalProps> = ({
             <p className="text-xs text-slate-600 leading-relaxed bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
               {shop.description}
             </p>
+          </div>
+
+          {/* Product Catalog & Inventory Section (Items 6r & 6s) */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <h4 className="font-bold text-slate-900 text-xs uppercase tracking-wider flex items-center gap-1.5">
+                <Package className="w-4 h-4 text-emerald-600" />
+                <span>Products & Price Catalog ({shop.catalog?.length || 0})</span>
+              </h4>
+              <span className="text-[11px] text-slate-500">
+                Direct WhatsApp Order Available
+              </span>
+            </div>
+
+            {shop.catalog && shop.catalog.length > 0 ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {shop.catalog.map((item) => (
+                  <div
+                    key={item.id}
+                    className="p-3 bg-white border border-slate-200 rounded-2xl hover:border-emerald-400 hover:shadow-xs transition-all flex flex-col justify-between"
+                  >
+                    <div className="flex items-start gap-3">
+                      {item.image && (
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="w-16 h-16 rounded-xl object-cover bg-slate-100 shrink-0 border border-slate-100"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <h5 className="font-bold text-xs text-slate-900 truncate">
+                          {item.name}
+                        </h5>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="font-black text-emerald-700 text-sm">
+                            Rs. {item.price}
+                          </span>
+                          {item.originalPrice && (
+                            <span className="line-through text-slate-400 text-xs">
+                              Rs. {item.originalPrice}
+                            </span>
+                          )}
+                        </div>
+                        <span className={`inline-block text-[9px] font-bold px-2 py-0.5 rounded-full mt-1 ${
+                          item.inStock !== false ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+                        }`}>
+                          {item.inStock !== false ? 'In Stock' : 'Out of Stock'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOrderProduct(item.name, item.price)}
+                      className="mt-3 w-full py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-all cursor-pointer active:scale-98"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5" />
+                      <span>Order on WhatsApp (Rs. {item.price})</span>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="p-4 bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-center text-xs text-slate-500">
+                <Package className="w-6 h-6 mx-auto mb-1 text-slate-400" />
+                <span>Call or chat via WhatsApp to request daily inventory & custom orders.</span>
+              </div>
+            )}
           </div>
 
           {/* Elegancia Water Stockist Badge */}

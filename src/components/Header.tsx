@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, MainNavTab } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { BrandLogo } from './BrandLogo';
 
 interface HeaderProps {
   activeTab: MainNavTab;
@@ -124,16 +125,14 @@ export const Header: React.FC<HeaderProps> = ({
     // Note: Do NOT add overflow-x-hidden here! It clips child dropdowns.
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs w-full font-sans text-xs select-none">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
-        {/* Left: Brand Name (Clean text only, no logo box next to it) & City Selector */}
+        {/* Left: Brand Logo & City Selector */}
         <div className="flex items-center gap-3 shrink-0">
           <button
             onClick={() => handleNav('home')}
             className="group text-left cursor-pointer transition-transform hover:scale-[1.01]"
             aria-label="asspas.store home"
           >
-            <span className="text-xl sm:text-2xl font-black tracking-tight text-slate-900 group-hover:text-emerald-700 transition-colors leading-none font-['Outfit']">
-              asspas<span className="text-emerald-600">.store</span>
-            </span>
+            <BrandLogo size="md" showTagline={false} />
           </button>
 
           {/* City Selector Pill (Hidden on mobile to keep header clean and prevent menu clipping; available in dropdown menu) */}
@@ -239,7 +238,7 @@ export const Header: React.FC<HeaderProps> = ({
               <User className="w-4 h-4 text-emerald-700 shrink-0" strokeWidth={2} />
             )}
             {currentUser && (
-              <span className="text-xs font-bold text-slate-800 max-w-[85px] truncate hidden sm:inline">
+              <span className="text-xs font-bold text-slate-800 max-w-[65px] sm:max-w-[90px] truncate inline">
                 {currentUser.displayName?.split(' ')[0] || userProfile?.name?.split(' ')[0] || 'Member'}
               </span>
             )}
@@ -277,6 +276,19 @@ export const Header: React.FC<HeaderProps> = ({
                   className="absolute right-0 top-full mt-2 w-72 max-w-[calc(100vw-20px)] bg-white rounded-2xl shadow-2xl border border-slate-200 py-2 z-50 animate-in fade-in zoom-in-95 duration-150 text-slate-800"
                   style={{ maxHeight: 'calc(100vh - 80px)', overflowY: 'auto' }}
                 >
+                  {/* DIRECT VISIBILITY ON MOBILE & DESKTOP: Register Business CTA AT VERY TOP */}
+                  <div className="p-2 border-b border-slate-100 bg-emerald-50/70">
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false);
+                        onOpenAddShopModal();
+                      }}
+                      className="w-full py-2.5 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
+                    >
+                      <PlusCircle className="w-4 h-4 text-emerald-200" strokeWidth={2.5} />
+                      <span>Register Your Business Free</span>
+                    </button>
+                  </div>
                   {/* City Selector option in Dropdown Menu (Accessible on Mobile & Desktop) */}
                   <div className="px-3.5 py-2 border-b border-slate-100 bg-slate-50/70 mb-1">
                     <div className="flex items-center justify-between mb-1.5">
@@ -418,32 +430,28 @@ export const Header: React.FC<HeaderProps> = ({
                       </div>
                     </button>
 
-                    {/* Direct Admin Portal link */}
-                    <button
-                      onClick={() => handleNav('admin')}
-                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors cursor-pointer border ${
-                        activeTab === 'admin' 
-                          ? 'text-white bg-emerald-700 border-emerald-800' 
-                          : 'text-emerald-900 bg-emerald-50/80 hover:bg-emerald-100 border-emerald-200/80'
-                      }`}
-                    >
-                      <ShieldCheck className="w-4 h-4 text-emerald-600" strokeWidth={2} />
-                      <div className="flex-1 flex items-center justify-between">
-                        <div>
-                          <div className="leading-tight">Admin Portal</div>
-                          <div className="text-[10px] text-emerald-700/80 font-normal">Protected route (/admin)</div>
-                        </div>
-                        {isAdmin ? (
+                    {/* Direct Admin Portal link (Visible to Superadmin) */}
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleNav('admin')}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-bold text-left transition-colors cursor-pointer border ${
+                          activeTab === 'admin' 
+                            ? 'text-white bg-emerald-700 border-emerald-800' 
+                            : 'text-emerald-900 bg-emerald-50/80 hover:bg-emerald-100 border-emerald-200/80'
+                        }`}
+                      >
+                        <ShieldCheck className="w-4 h-4 text-emerald-600" strokeWidth={2} />
+                        <div className="flex-1 flex items-center justify-between">
+                          <div>
+                            <div className="leading-tight">Admin Portal</div>
+                            <div className="text-[10px] text-emerald-700/80 font-normal">Superadmin Dashboard</div>
+                          </div>
                           <span className="bg-emerald-600 text-white text-[9px] px-1.5 py-0.5 rounded font-bold">
                             Superadmin
                           </span>
-                        ) : (
-                          <span className="text-[9px] text-slate-400 font-medium">
-                            Login
-                          </span>
-                        )}
-                      </div>
-                    </button>
+                        </div>
+                      </button>
+                    )}
                   </div>
 
                   <div className="my-1.5 border-t border-slate-100" />
@@ -485,22 +493,6 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <Phone className="w-4 h-4 text-emerald-600" strokeWidth={2} />
                       <span>Helpline (0308-5599766)</span>
-                    </button>
-                  </div>
-
-                  <div className="my-1 border-t border-slate-100" />
-
-                  {/* Register Shop CTA in Menu */}
-                  <div className="px-3 pt-1 pb-1">
-                    <button
-                      onClick={() => {
-                        setDropdownOpen(false);
-                        onOpenAddShopModal();
-                      }}
-                      className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-                    >
-                      <PlusCircle className="w-4 h-4" strokeWidth={2} />
-                      <span>Register Your Business Free</span>
                     </button>
                   </div>
                 </div>

@@ -14,7 +14,14 @@ export type ShopCategory =
   | 'Tailoring & Boutiques'
   | 'Home Maintenance & Repair';
 
-export type ShopType = 'All Shops' | 'Retail Store' | 'Wholesale' | 'Restaurant / Cafe' | 'Service Provider';
+export type ShopType = 
+  | 'All Shops' 
+  | 'Retail Store' 
+  | 'Wholesale' 
+  | 'Producer / Manufacturer' 
+  | 'Dealer / Distributor' 
+  | 'Restaurant / Cafe' 
+  | 'Service Provider';
 
 export type GoodsOrServiceType = 'goods' | 'services' | 'both';
 
@@ -22,6 +29,9 @@ export interface CatalogItem {
   id: string;
   name: string;
   price: number;
+  originalPrice?: number;
+  image?: string;
+  description?: string;
   unit?: string;
   inStock: boolean;
   category?: string;
@@ -112,6 +122,7 @@ export interface UserProfile {
   email: string;
   photoURL?: string;
   phone: string;
+  city?: string;
   role: 'user' | 'admin';
   points: number;
   referralCode: string;
