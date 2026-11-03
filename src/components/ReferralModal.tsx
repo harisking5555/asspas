@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { UserProfile } from '../types';
+import { getReferralLink } from '../services/referralService';
 
 interface ReferralModalProps {
   isOpen: boolean;
@@ -32,7 +33,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
 
   if (!isOpen) return null;
 
-  const referralUrl = `https://asspas.store/?ref=${user.referralCode}`;
+  const referralUrl = getReferralLink(user.referralCode);
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralUrl);
@@ -41,7 +42,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
   };
 
   const handleWhatsAppShare = () => {
-    const text = `Assalam-o-Alaikum! Join asspas.store to find all verified local shops near you in Peshawar, track distances, and get authentic Elegancia Mineral Water delivered! 🎁 Use my referral code *${user.referralCode}* to get 50 Free Welcome Points: ${referralUrl}`;
+    const text = `Assalam-o-Alaikum! Join asspas.store to discover verified local shops in Pakistan, find nearby services, and get authentic Elegancia Mineral Water! 🎁 Register via my referral link to get 50 Free Welcome Points: ${referralUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
   };
 
@@ -58,7 +59,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
 
   const handleRedeem = (cost: number, rewardName: string) => {
     if (user.points < cost) {
-      alert(`You need ${cost} points for this reward. Share your referral code to earn more points!`);
+      alert(`You need ${cost} points for this reward. Share your referral link to earn more points!`);
       return;
     }
     try {
@@ -98,7 +99,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
             Invite Neighbors & Earn Rewards
           </h2>
           <p className="text-xs text-emerald-100/90 mt-1">
-            Share your unique referral link on WhatsApp. You get <strong>50 Points</strong> for every neighbor who joins, and they get <strong>100 Free Welcome Points</strong>!
+            Share your unique referral link on WhatsApp. You get <strong>50 Points</strong> for every neighbor who joins, and they get <strong>50 Free Welcome Points</strong>!
           </p>
 
           {/* Current Points Badge */}

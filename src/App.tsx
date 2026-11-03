@@ -13,7 +13,8 @@ import {
   Search,
   AlertCircle,
   Map as MapIcon,
-  List as ListIcon
+  List as ListIcon,
+  Sparkles
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -157,6 +158,35 @@ export default function App() {
       }
     }
   }, [shops]);
+
+  // Referral link deep-linking (?ref=XYZ or /?ref=XYZ or #/?ref=XYZ)
+  const [activeReferralNotice, setActiveReferralNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let refParam: string | null = null;
+
+    // 1. Check window.location.search (?ref=...)
+    if (typeof window !== 'undefined' && window.location.search) {
+      const searchParams = new URLSearchParams(window.location.search);
+      refParam = searchParams.get('ref');
+    }
+
+    // 2. Check window.location.hash if not found in search (#/?ref=...)
+    if (!refParam && typeof window !== 'undefined' && window.location.hash) {
+      const hashParts = window.location.hash.split('?');
+      if (hashParts[1]) {
+        const hashParams = new URLSearchParams(hashParts[1]);
+        refParam = hashParams.get('ref');
+      }
+    }
+
+    if (refParam) {
+      const cleanRef = refParam.trim();
+      localStorage.setItem('asspas_referred_by', cleanRef);
+      sessionStorage.setItem('asspas_referred_by', cleanRef);
+      setActiveReferralNotice('🎉 Referral Link Active: You were invited by a community member! Register to claim 50 Free Welcome Points.');
+    }
+  }, []);
 
   // Sync route state with hash when changing tabs
   const handleSelectTab = (tab: MainNavTab) => {
@@ -440,6 +470,31 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col antialiased selection:bg-emerald-500 selection:text-white font-sans text-xs w-full max-w-full overflow-x-hidden">
+      {/* Active Referral Welcome Banner */}
+      {activeReferralNotice && (
+        <div className="bg-gradient-to-r from-emerald-700 via-teal-700 to-emerald-800 text-white text-xs font-semibold px-4 py-2 flex items-center justify-between shadow-md z-40 border-b border-emerald-500/40">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-emerald-200 shrink-0" />
+            <span>{activeReferralNotice}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsAuthOpen(true)}
+              className="px-2.5 py-1 bg-white text-emerald-900 rounded-lg font-bold text-[11px] hover:bg-emerald-50 cursor-pointer shadow-xs transition-colors shrink-0"
+            >
+              Sign In / Claim 50 PTS
+            </button>
+            <button
+              onClick={() => setActiveReferralNotice(null)}
+              className="text-white/80 hover:text-white text-xs px-1 cursor-pointer"
+              title="Dismiss"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <Header
         activeTab={activeTab}

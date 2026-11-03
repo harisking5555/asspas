@@ -23,6 +23,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { uploadImageToImgBB } from '../services/imageUploadService';
 import { BrandLogo } from './BrandLogo';
+import { getReferralLink } from '../services/referralService';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -76,6 +77,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   if (!isOpen) return null;
 
   const currentHostname = typeof window !== 'undefined' ? window.location.hostname : '';
+  const activeStoredReferral = typeof window !== 'undefined'
+    ? localStorage.getItem('asspas_referred_by') || sessionStorage.getItem('asspas_referred_by')
+    : null;
 
   const handleGoogleLogin = async () => {
     setErrorMsg(null);
@@ -132,7 +136,8 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setUnauthorizedDomain(null);
 
     const isSignUp = authMode === 'signup';
-    const res = await signInWithEmail(emailInput, passwordInput, isSignUp, nameInput, referralCodeInput);
+    const referralToPass = activeStoredReferral || referralCodeInput || undefined;
+    const res = await signInWithEmail(emailInput, passwordInput, isSignUp, nameInput, referralToPass);
     if (!res.success) {
       setErrorMsg(res.error || 'Email authentication failed.');
     } else {
@@ -395,11 +400,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {/* Full Referral URL Link with Copy Button */}
                 <div className="bg-emerald-900/70 border border-emerald-700/60 rounded-xl p-2 flex items-center justify-between gap-2">
                   <span className="font-mono text-xs text-emerald-100 truncate select-all">
-                    {`https://asspas.store/?ref=${userProfile.referralCode}`}
+                    {getReferralLink(userProfile.referralCode)}
                   </span>
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(`https://asspas.store/?ref=${userProfile.referralCode}`);
+                      navigator.clipboard.writeText(getReferralLink(userProfile.referralCode));
                       setCopiedLink(true);
                       setTimeout(() => setCopiedLink(false), 2000);
                     }}
@@ -419,7 +424,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const link = `https://asspas.store/?ref=${userProfile.referralCode}`;
+                        const link = getReferralLink(userProfile.referralCode);
                         const text = `Assalam-o-Alaikum! Join asspas.store to find all verified shops & Elegancia Mineral Water in Pakistan. Register via my referral link to get 50 Free Welcome Points: ${link}`;
                         window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                       }}
@@ -431,7 +436,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const link = `https://asspas.store/?ref=${userProfile.referralCode}`;
+                        const link = getReferralLink(userProfile.referralCode);
                         window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(link)}`, '_blank');
                       }}
                       className="py-1.5 px-2 bg-[#1877F2] hover:bg-[#166fe5] text-white rounded-xl font-bold text-[11px] flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
@@ -442,7 +447,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        const link = `https://asspas.store/?ref=${userProfile.referralCode}`;
+                        const link = getReferralLink(userProfile.referralCode);
                         navigator.clipboard.writeText(link);
                         alert('Referral link copied! You can now paste your asspas.store link in your Instagram story sticker or bio.');
                       }}
@@ -586,7 +591,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                   50 Points Referral Reward Available
                 </div>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
-                  Join with a neighbor's referral code to instantly receive <strong>50 loyalty points</strong>.
+                  Join via a neighbor's referral link to instantly receive <strong>50 loyalty points</strong>.
                 </p>
               </div>
 
@@ -600,18 +605,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({
               {/* Mode: Google Auth */}
               {authMode === 'google' && (
                 <div className="space-y-3.5">
-                  <div className="space-y-1">
-                    <label className="block text-[11px] font-semibold text-slate-700">
-                      Invite / Referral Code (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. ASSPAS-7892"
-                      value={referralCodeInput}
-                      onChange={(e) => setReferralCodeInput(e.target.value.toUpperCase())}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-semibold tracking-wider text-slate-800 uppercase focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
+                  {activeStoredReferral && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 text-xs font-semibold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Referral Link Active: 50 Free Welcome Points will be automatically credited!</span>
+                    </div>
+                  )}
 
                   <button
                     type="button"
@@ -776,18 +775,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                     </div>
                   )}
 
-                  {authMode === 'signup' && (
-                    <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Referral / Invite Code (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. ASSPAS-7892"
-                        value={referralCodeInput}
-                        onChange={(e) => setReferralCodeInput(e.target.value.toUpperCase())}
-                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-semibold tracking-wider uppercase outline-none focus:ring-1 focus:ring-emerald-500"
-                      />
+                  {authMode === 'signup' && activeStoredReferral && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 text-xs font-semibold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                      <span>Referral Link Active: 50 Free Welcome Points will be automatically credited!</span>
                     </div>
                   )}
 

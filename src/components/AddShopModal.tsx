@@ -23,6 +23,7 @@ import { useAuth } from '../context/AuthContext';
 import { uploadShopImage } from '../services/storageService';
 import { uploadImageToImgBB } from '../services/imageUploadService';
 import { createShopInDb } from '../services/shopService';
+import { MapLocationPicker } from './MapLocationPicker';
 
 interface AddShopModalProps {
   isOpen: boolean;
@@ -192,22 +193,32 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
     }
   }, [province]);
 
-  // Parse Google Maps link if user copies from mobile
+  // Parse Google Maps link or coordinates if user pastes from mobile
   const handleParseMapLink = (url: string) => {
     setGoogleMapsUrlInput(url);
+    if (!url.trim()) return;
     try {
+      const trimmed = url.trim();
+      // Check for bare numbers: "34.0151, 71.5249"
+      const bareMatch = trimmed.match(/^(-?\d+\.\d+)[,\s]+(-?\d+\.\d+)$/);
+      if (bareMatch) {
+        setLatInput(bareMatch[1]);
+        setLngInput(bareMatch[2]);
+        return;
+      }
       // Check for @34.0151,71.5249 pattern
-      const match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+      const match = trimmed.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
       if (match) {
         setLatInput(match[1]);
         setLngInput(match[2]);
-      } else {
-        // Check for q=34.0151,71.5249 pattern
-        const qMatch = url.match(/[?&]q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-        if (qMatch) {
-          setLatInput(qMatch[1]);
-          setLngInput(qMatch[2]);
-        }
+        return;
+      }
+      // Check for q=34.0151,71.5249 or query= or ll= pattern
+      const qMatch = trimmed.match(/[?&](?:q|query|ll)=(-?\d+\.\d+),(-?\d+\.\d+)/);
+      if (qMatch) {
+        setLatInput(qMatch[1]);
+        setLngInput(qMatch[2]);
+        return;
       }
     } catch {}
   };
@@ -740,44 +751,65 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                 </div>
               </div>
 
-              {/* GPS Coordinates & Google Maps Link */}
-              <div className="pt-2 border-t border-emerald-200/80 space-y-2">
-                <span className="text-[11px] font-bold text-slate-800 block">
-                  Precise GPS Coordinates & Google Maps Link (ڈائریکٹ نمبرز یا گوگل میپ کا لنک)
-                </span>
-                
-                {/* Google Maps link input */}
+              {/* Interactive Visual Map & Pin Placement (میپ پر پن اور لوکیشن سلیکٹر) */}
+              <div className="pt-2 border-t border-emerald-200/80 space-y-3">
+                <MapLocationPicker
+                  lat={parseFloat(latInput) || 34.0151}
+                  lng={parseFloat(lngInput) || 71.5249}
+                  cityName={city}
+                  shopName={name || 'My Shop Location'}
+                  onLocationChange={(newLat, newLng) => {
+                    setLatInput(String(newLat));
+                    setLngInput(String(newLng));
+                    setGoogleMapsUrlInput(`https://www.google.com/maps?q=${newLat},${newLng}`);
+                  }}
+                />
+
+                {/* Google Maps link paste input */}
                 <div>
+                  <span className="text-[10px] font-bold text-slate-700 block mb-1">
+                    Or Paste Existing Google Maps Link / Coordinates (یا میپ کا شیئر لنک / نمبرز پیسٹ کریں):
+                  </span>
                   <input
-                    type="url"
-                    placeholder="Paste Google Maps Share Link (e.g. https://maps.app.goo.gl/...)"
+                    type="text"
+                    placeholder="e.g. https://maps.app.goo.gl/... or 34.0151, 71.5249"
                     value={googleMapsUrlInput}
                     onChange={(e) => handleParseMapLink(e.target.value)}
-                    className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+                    className="w-full bg-white border border-emerald-300 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-emerald-500 font-medium shadow-2xs"
                   />
                 </div>
 
-                {/* Manual Latitude & Longitude inputs */}
+                {/* Manual Numeric Coordinates */}
                 <div className="grid grid-cols-2 gap-2.5">
                   <div>
-                    <span className="text-[10px] font-medium text-slate-600 block mb-0.5">Latitude (دستی نمبر درج کریں)</span>
+                    <span className="text-[10px] font-medium text-slate-600 block mb-0.5">Latitude (خودکار / دستی)</span>
                     <input
                       type="number"
                       step="any"
                       placeholder="e.g. 34.0151"
                       value={latInput}
-                      onChange={(e) => setLatInput(e.target.value)}
+                      onChange={(e) => {
+                        setLatInput(e.target.value);
+                        if (e.target.value && lngInput) {
+                          setGoogleMapsUrlInput(`https://www.google.com/maps?q=${e.target.value},${lngInput}`);
+                        }
+                      }}
                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-emerald-500"
                     />
                   </div>
                   <div>
-                    <span className="text-[10px] font-medium text-slate-600 block mb-0.5">Longitude (دستی نمبر درج کریں)</span>
+                    <span className="text-[10px] font-medium text-slate-600 block mb-0.5">Longitude (خودکار / دستی)</span>
                     <input
                       type="number"
                       step="any"
                       placeholder="e.g. 71.5249"
                       value={lngInput}
-                      onChange={(e) => setLngInput(e.target.value)}
+                      onChange={(e) => {
+                        setLngInput(e.target.value);
+                        if (latInput && e.target.value) {
+                          setGoogleMapsUrlInput(`https://www.google.com/maps?q=${latInput},${e.target.value}`);
+                        }
+                      }}
                       className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono outline-none focus:ring-1 focus:ring-emerald-500"
                     />
                   </div>

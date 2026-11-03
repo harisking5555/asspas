@@ -196,6 +196,95 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
+   * Universal Referral Link & Reward Attribution Processor
+   * Resolves inviter by referral code OR by user UID, awards 50 PTS to both,
+   * updates 3x3 matrix tree, and logs to immutable pointsLedger.
+   */
+  const processReferralReward = async (
+    inviteeUid: string,
+    inviteeName: string,
+    referredByInput?: string
+  ): Promise<{ validInviterUid: string | null; codeUsed: string | null; hasPrivileges: boolean }> => {
+    let rawRef = (referredByInput || '').trim();
+    if (!rawRef && typeof window !== 'undefined') {
+      rawRef = (localStorage.getItem('asspas_referred_by') || sessionStorage.getItem('asspas_referred_by') || '').trim();
+    }
+
+    if (!rawRef) {
+      return { validInviterUid: null, codeUsed: null, hasPrivileges: false };
+    }
+
+    try {
+      let inviterDocSnap: any = null;
+      let matchedCode = rawRef;
+
+      // 1. Try finding by referralCode (case-insensitive)
+      const q = query(collection(db, 'users'), where('referralCode', '==', rawRef.toUpperCase()));
+      const snap = await getDocs(q);
+      if (!snap.empty && snap.docs[0].id !== inviteeUid) {
+        inviterDocSnap = snap.docs[0];
+        matchedCode = inviterDocSnap.data()?.referralCode || rawRef.toUpperCase();
+      } else {
+        // 2. Try finding by direct user UID document
+        const uDoc = await getDoc(doc(db, 'users', rawRef));
+        if (uDoc.exists() && uDoc.id !== inviteeUid) {
+          inviterDocSnap = uDoc;
+          matchedCode = uDoc.data()?.referralCode || rawRef;
+        }
+      }
+
+      if (inviterDocSnap) {
+        const inviterUid = inviterDocSnap.id;
+        const inviterData = inviterDocSnap.data();
+        const currentPts = inviterData?.points || 0;
+        const currentCount = inviterData?.referredCount || 0;
+
+        // Credit 50 points to inviter
+        await updateDoc(doc(db, 'users', inviterUid), {
+          points: currentPts + 50,
+          referredCount: currentCount + 1,
+          updatedAt: serverTimestamp(),
+        });
+
+        // Add to pointsLedger for inviter
+        await addDoc(collection(db, 'pointsLedger'), {
+          userId: inviterUid,
+          eventType: 'referral_reward',
+          points: 50,
+          balanceAfter: currentPts + 50,
+          referenceId: inviteeUid,
+          description: `Referral reward (+50 PTS) for inviting ${inviteeName} via referral link`,
+          createdAt: serverTimestamp(),
+        });
+
+        // Add to referrals tracking collection
+        await addDoc(collection(db, 'referrals'), {
+          inviterId: inviterUid,
+          inviteeId: inviteeUid,
+          inviteeName: inviteeName || 'New Member',
+          codeUsed: matchedCode,
+          matrixSlot: (currentCount % 3) + 1,
+          level: 1,
+          status: 'active',
+          createdAt: serverTimestamp(),
+        });
+
+        // Clean up stored referral
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('asspas_referred_by');
+          sessionStorage.removeItem('asspas_referred_by');
+        }
+
+        return { validInviterUid: inviterUid, codeUsed: matchedCode, hasPrivileges: true };
+      }
+    } catch (err) {
+      console.warn('Error processing referral reward:', err);
+    }
+
+    return { validInviterUid: null, codeUsed: null, hasPrivileges: false };
+  };
+
+  /**
    * Sign In / Sign Up with Email and Password
    * Bypasses Google OAuth domain restriction completely
    */
@@ -230,25 +319,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const userSnap = await getDoc(userDocRef);
 
       if (!userSnap.exists() || isNew) {
-        let hasPrivileges = false;
-        let validInviterUid: string | null = null;
-        const trimmedCode = referralCodeInput?.trim().toUpperCase();
-
-        if (trimmedCode) {
-          try {
-            const q = query(collection(db, 'users'), where('referralCode', '==', trimmedCode));
-            const querySnap = await getDocs(q);
-            if (!querySnap.empty) {
-              const inviterDoc = querySnap.docs[0];
-              if (inviterDoc.id !== fbUser.uid) {
-                validInviterUid = inviterDoc.id;
-                hasPrivileges = true;
-              }
-            }
-          } catch (err) {
-            console.warn('Error querying referral code:', err);
-          }
-        }
+        const { validInviterUid, codeUsed, hasPrivileges } = await processReferralReward(
+          fbUser.uid,
+          name?.trim() || fbUser.displayName || 'Member',
+          referralCodeInput
+        );
 
         const initialPoints = hasPrivileges ? 50 : 0;
         const myReferralCode = generateReferralCode();
@@ -264,7 +339,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: userIsAdmin ? 'admin' : 'user',
           points: initialPoints,
           referralCode: myReferralCode,
-          referredBy: validInviterUid ? trimmedCode : null,
+          referredBy: validInviterUid ? codeUsed : null,
           hasReferralPrivileges: hasPrivileges,
           matrixParentId: validInviterUid,
           matrixLevel: 1,
@@ -277,6 +352,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         await setDoc(userDocRef, newProfileData);
 
+        if (hasPrivileges) {
+          try {
+            await addDoc(collection(db, 'pointsLedger'), {
+              userId: fbUser.uid,
+              eventType: 'referral_signup',
+              points: 50,
+              balanceAfter: 50,
+              referenceId: codeUsed,
+              description: `Welcome bonus (+50 PTS) for joining via referral link`,
+              createdAt: serverTimestamp(),
+            });
+          } catch (err) {
+            console.warn('Error recording invitee ledger:', err);
+          }
+        }
+
         const freshProfile: UserProfile = {
           id: fbUser.uid,
           name: name?.trim() || fbUser.displayName || 'Member',
@@ -286,7 +377,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: userIsAdmin ? 'admin' : 'user',
           points: initialPoints,
           referralCode: myReferralCode,
-          referredBy: validInviterUid ? trimmedCode : null,
+          referredBy: validInviterUid ? codeUsed : null,
           hasReferralPrivileges: hasPrivileges,
           matrixParentId: validInviterUid,
           matrixLevel: 1,
@@ -334,25 +425,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isNew = !userSnap.exists();
 
       if (isNew) {
-        let hasPrivileges = false;
-        let validInviterUid: string | null = null;
-        const trimmedCode = referralCodeInput?.trim().toUpperCase();
-
-        if (trimmedCode) {
-          try {
-            const q = query(collection(db, 'users'), where('referralCode', '==', trimmedCode));
-            const querySnap = await getDocs(q);
-            if (!querySnap.empty) {
-              const inviterDoc = querySnap.docs[0];
-              if (inviterDoc.id !== fbUser.uid) {
-                validInviterUid = inviterDoc.id;
-                hasPrivileges = true;
-              }
-            }
-          } catch (err) {
-            console.warn('Error querying referral code:', err);
-          }
-        }
+        const { validInviterUid, codeUsed, hasPrivileges } = await processReferralReward(
+          fbUser.uid,
+          fbUser.displayName || 'Member',
+          referralCodeInput
+        );
 
         const initialPoints = hasPrivileges ? 50 : 0;
         const myReferralCode = generateReferralCode();
@@ -368,7 +445,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: userIsAdmin ? 'admin' : 'user',
           points: initialPoints,
           referralCode: myReferralCode,
-          referredBy: validInviterUid ? trimmedCode : null,
+          referredBy: validInviterUid ? codeUsed : null,
           hasReferralPrivileges: hasPrivileges,
           matrixParentId: validInviterUid,
           matrixLevel: 1,
@@ -388,49 +465,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               eventType: 'referral_signup',
               points: 50,
               balanceAfter: 50,
-              referenceId: trimmedCode,
-              description: `Welcome bonus for joining via referral code ${trimmedCode}`,
+              referenceId: codeUsed,
+              description: `Welcome bonus (+50 PTS) for joining via referral link`,
               createdAt: serverTimestamp(),
             });
-
-            if (validInviterUid) {
-              const inviterDocRef = doc(db, 'users', validInviterUid);
-              const inviterSnap = await getDoc(inviterDocRef);
-              if (inviterSnap.exists()) {
-                const inviterData = inviterSnap.data();
-                const currentPts = inviterData.points || 0;
-                const currentCount = inviterData.referredCount || 0;
-
-                await updateDoc(inviterDocRef, {
-                  points: currentPts + 50,
-                  referredCount: currentCount + 1,
-                  updatedAt: serverTimestamp(),
-                });
-
-                await addDoc(collection(db, 'pointsLedger'), {
-                  userId: validInviterUid,
-                  eventType: 'referral_reward',
-                  points: 50,
-                  balanceAfter: currentPts + 50,
-                  referenceId: fbUser.uid,
-                  description: `Referral reward for inviting ${fbUser.displayName || 'a new member'}`,
-                  createdAt: serverTimestamp(),
-                });
-
-                await addDoc(collection(db, 'referrals'), {
-                  inviterId: validInviterUid,
-                  inviteeId: fbUser.uid,
-                  inviteeName: fbUser.displayName || 'Member',
-                  codeUsed: trimmedCode,
-                  matrixSlot: (currentCount % 3) + 1,
-                  level: 1,
-                  status: 'active',
-                  createdAt: serverTimestamp(),
-                });
-              }
-            }
           } catch (err) {
-            console.warn('Error recording points ledger:', err);
+            console.warn('Error recording Google invitee ledger:', err);
           }
         }
 
@@ -443,7 +483,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           role: userIsAdmin ? 'admin' : 'user',
           points: initialPoints,
           referralCode: myReferralCode,
-          referredBy: validInviterUid ? trimmedCode : null,
+          referredBy: validInviterUid ? codeUsed : null,
           hasReferralPrivileges: hasPrivileges,
           matrixParentId: validInviterUid,
           matrixLevel: 1,
@@ -461,23 +501,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setLoading(false);
       return { success: true, isNewUser: isNew };
-    } catch (error: any) {
+    } catch (err: any) {
       setLoading(false);
-      const isUnauthorizedDomain = 
-        error?.code === 'auth/unauthorized-domain' ||
-        error?.message?.includes('unauthorized-domain');
-      const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
-      const msg = isUnauthorizedDomain
-        ? `Domain '${currentHost}' is not yet authorized in Firebase project 'asspas-611e9'. Add it in Firebase Console -> Authentication -> Settings -> Authorized domains.`
-        : (error as Error).message || 'Google sign-in failed';
-      
-      console.warn('Google Sign In Warning:', error?.code, msg);
-      return { 
-        success: false, 
-        isNewUser: false, 
-        error: msg, 
-        errorCode: error?.code || (isUnauthorizedDomain ? 'auth/unauthorized-domain' : undefined),
-        currentDomain: currentHost
+      const isUnauthDomain = err?.code === 'auth/unauthorized-domain' || err?.message?.includes('unauthorized-domain');
+      return {
+        success: false,
+        isNewUser: false,
+        error: isUnauthDomain 
+          ? 'Firebase Google OAuth domain not authorized. Please use Email/Password login or authorize this domain in Firebase Console.'
+          : err?.message || 'Google authentication failed',
+        errorCode: err?.code,
+        currentDomain: typeof window !== 'undefined' ? window.location.hostname : '',
       };
     }
   };

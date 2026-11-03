@@ -12,6 +12,17 @@ import { db } from '../lib/firebase';
 import { ReferralNode, PointTransaction } from '../types';
 
 /**
+ * Generate clean referral link for the current domain or asspas.store
+ */
+export function getReferralLink(codeOrUid: string): string {
+  if (typeof window !== 'undefined' && window.location.origin) {
+    const origin = window.location.origin;
+    return `${origin}/?ref=${encodeURIComponent(codeOrUid)}`;
+  }
+  return `https://asspas.store/?ref=${encodeURIComponent(codeOrUid)}`;
+}
+
+/**
  * Fetch 3x3 Referral Matrix tree for a given user
  */
 export async function fetchUserReferralTree(userId: string, rootReferralCode: string): Promise<ReferralNode> {
