@@ -148,6 +148,8 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
   const [orderPhoneIndex, setOrderPhoneIndex] = useState<number>(0);
   const [whatsapp, setWhatsapp] = useState(userProfile?.phone || '');
   const [email, setEmail] = useState(userProfile?.email || '');
+  const [openTime, setOpenTime] = useState('09:00 AM');
+  const [closeTime, setCloseTime] = useState('10:00 PM');
   const [openingHours, setOpeningHours] = useState('09:00 AM - 10:00 PM');
   const [isCustomTiming, setIsCustomTiming] = useState(false);
 
@@ -160,6 +162,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
   const [hasEleganciaWater, setHasEleganciaWater] = useState<boolean>(false);
   const [eleganciaSizes, setEleganciaSizes] = useState<string[]>(['500ml Bottled', '1.5L Family Pack', '19L Dispenser Can']);
   const [isChilled, setIsChilled] = useState<boolean>(true);
+  const [alternativeWater, setAlternativeWater] = useState<string>('None / Not Selling Water');
 
   // 9. Photos (Single or Multiple with admin-friendly format)
   const [imagePreview, setImagePreview] = useState<string>(
@@ -283,26 +286,24 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
       return;
     }
 
-    const digits1 = phone1.replace(/\D/g, '');
-    if (digits1.length < 10 || digits1.length > 12) {
-      setErrorMsg('Primary Phone 1 must be a valid 11-digit Pakistani phone number (e.g. 0300-1234567).');
+    const isValidPakistaniPhone = (num: string) => {
+      const clean = num.replace(/[\s\-\+]/g, '');
+      return /^(03\d{9}|923\d{9}|0[2-9]\d{8,9})$/.test(clean);
+    };
+
+    if (!isValidPakistaniPhone(phone1)) {
+      setErrorMsg('Primary Phone 1 must be a valid Pakistani phone number (format: 03XX-XXXXXXX).');
       return;
     }
 
-    if (phone2.trim()) {
-      const digits2 = phone2.replace(/\D/g, '');
-      if (digits2.length < 10 || digits2.length > 12) {
-        setErrorMsg('Phone 2 must be a valid 11-digit phone number or left empty.');
-        return;
-      }
+    if (phone2.trim() && !isValidPakistaniPhone(phone2)) {
+      setErrorMsg('Phone 2 must be a valid Pakistani phone number (format: 03XX-XXXXXXX) or landline.');
+      return;
     }
 
-    if (phone3.trim()) {
-      const digits3 = phone3.replace(/\D/g, '');
-      if (digits3.length < 9 || digits3.length > 12) {
-        setErrorMsg('Phone 3 must be a valid phone number (10-12 digits) or left empty.');
-        return;
-      }
+    if (phone3.trim() && !isValidPakistaniPhone(phone3)) {
+      setErrorMsg('Phone 3 must be a valid Pakistani phone or PTCL landline number.');
+      return;
     }
 
     const constructedAddress = [
@@ -361,7 +362,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
         phones,
         orderPhoneIndex,
         whatsapp: (whatsapp || chosenPrimaryPhone).replace(/\D/g, ''),
-        email: email.trim() || currentUser.email || 'business@asspas.store',
+        email: email.trim() || (currentUser.email ? currentUser.email : ''),
         hasEleganciaWater,
         eleganciaDetails: hasEleganciaWater
           ? {
@@ -371,6 +372,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
               note: `Registered retailer of pure Elegancia Mineral Water in ${city}.`,
             }
           : undefined,
+        alternativeWater: !hasEleganciaWater ? alternativeWater : undefined,
         tags: [
           itemType === 'services' ? 'Professional Service' : 'Retail Merchant',
           city,
@@ -554,38 +556,51 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
             </div>
 
             {/* 2. Business Nature (Before categories) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  2. Business Nature <span className="text-red-500">*</span>
-                </label>
-                <select
-                  value={shopType}
-                  onChange={(e) => setShopType(e.target.value as Exclude<ShopType, 'All Shops'>)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium cursor-pointer"
-                >
-                  <option value="Retail Store">Retail Store (پرچون دکان)</option>
-                  <option value="Wholesale">Wholesale Market (تھوک مارکیٹ)</option>
-                  <option value="Producer / Manufacturer">Producer / Manufacturer (کارخانہ / مینوفیکچرر)</option>
-                  <option value="Dealer / Distributor">Dealer / Distributor (ڈیلر / ڈسٹری بیوٹر)</option>
-                  <option value="Restaurant / Cafe">Restaurant / Cafe / Food (ہوٹل یا فوڈ پوائنٹ)</option>
-                  <option value="Service Provider">Service Provider (سروس یا ہنر)</option>
-                </select>
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+              <label className="block font-bold text-slate-800 text-xs">
+                2. Business Nature (کاروباری نوعیت) <span className="text-red-500">*</span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {[
+                  { value: 'Retail Store', label: 'Retail Store', urdu: 'پرچون دکان' },
+                  { value: 'Wholesale', label: 'Wholesale Market', urdu: 'تھوک مارکیٹ' },
+                  { value: 'Producer / Manufacturer', label: 'Producer / Manufacturer', urdu: 'کارخانہ / مینوفیکچرر' },
+                  { value: 'Dealer / Distributor', label: 'Dealer / Distributor', urdu: 'ڈیلر / ڈسٹری بیوٹر' },
+                  { value: 'Restaurant / Cafe', label: 'Restaurant / Cafe', urdu: 'ہوٹل یا فوڈ پوائنٹ' },
+                  { value: 'Service Provider', label: 'Service Provider', urdu: 'سروس یا ہنر' },
+                ].map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setShopType(item.value as Exclude<ShopType, 'All Shops'>)}
+                    className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                      shopType === item.value
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs ring-1 ring-emerald-400 font-bold'
+                        : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300 font-medium'
+                    }`}
+                  >
+                    <div className="text-xs leading-tight">{item.label}</div>
+                    <div className={`text-[10px] mt-0.5 ${shopType === item.value ? 'text-emerald-100' : 'text-slate-400'}`}>
+                      {item.urdu}
+                    </div>
+                  </button>
+                ))}
               </div>
+            </div>
 
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Shop / Business Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Peshawar General Store / Khyber Manufacturers"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
-                />
-              </div>
+            {/* Shop Name */}
+            <div>
+              <label className="block font-semibold text-slate-700 mb-1">
+                Shop / Business Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Peshawar General Store / Khyber Manufacturers"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+              />
             </div>
 
             {/* 3. Categories with Custom Add & Dictionary on */}
@@ -922,13 +937,62 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
               </div>
             </div>
 
-            {/* 6. Opening Hours Timing Options */}
-            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
-              <label className="block font-semibold text-slate-700 text-xs">
-                6. Shop Opening Hours & Timing
-              </label>
+            {/* 6. Opening Hours Timing Options (Configurable Opening & Closing Times) */}
+            <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="block font-semibold text-slate-800 text-xs">
+                  6. Shop Opening Hours & Timing (دکان کے اوقات کار)
+                </label>
+                <span className="text-[10px] text-emerald-800 font-bold bg-white px-2 py-0.5 rounded border border-emerald-200">
+                  {openingHours}
+                </span>
+              </div>
+
+              {/* Configurable Selects for Open & Close */}
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <span className="text-[10px] text-slate-600 block mb-1 font-medium">Opening Time (کھلنے کا وقت)</span>
+                  <select
+                    value={openTime}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setOpenTime(val);
+                      if (val === 'Open 24 Hours') {
+                        setOpeningHours('Open 24/7');
+                      } else {
+                        setOpeningHours(`${val} - ${closeTime}`);
+                      }
+                      setIsCustomTiming(false);
+                    }}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                  >
+                    {['06:00 AM', '07:00 AM', '08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', 'Open 24 Hours'].map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-slate-600 block mb-1 font-medium">Closing Time (بند ہونے کا وقت)</span>
+                  <select
+                    value={closeTime}
+                    disabled={openTime === 'Open 24 Hours'}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCloseTime(val);
+                      setOpeningHours(`${openTime} - ${val}`);
+                      setIsCustomTiming(false);
+                    }}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-semibold outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer disabled:opacity-50"
+                  >
+                    {['05:00 PM', '06:00 PM', '07:00 PM', '08:00 PM', '09:00 PM', '10:00 PM', '11:00 PM', '12:00 AM', '01:00 AM', '02:00 AM'].map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
               
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
                 {[
                   '09:00 AM - 10:00 PM',
                   '10:00 AM - 11:00 PM',
@@ -942,9 +1006,9 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                       setOpeningHours(preset);
                       setIsCustomTiming(false);
                     }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer border transition-colors ${
                       openingHours === preset && !isCustomTiming
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
                         : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300'
                     }`}
                   >
@@ -953,14 +1017,14 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                 ))}
                 <button
                   type="button"
-                  onClick={() => setIsCustomTiming(true)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer border transition-colors ${
+                  onClick={() => setIsCustomTiming(!isCustomTiming)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer border transition-colors ${
                     isCustomTiming
-                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
                       : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300'
                   }`}
                 >
-                  Custom Hours...
+                  Custom Notes...
                 </button>
               </div>
 
@@ -968,7 +1032,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                 <div className="pt-1">
                   <input
                     type="text"
-                    placeholder="e.g. 11:00 AM - 09:00 PM (Friday Closed 1-3 PM)"
+                    placeholder="e.g. 10:00 AM - 10:00 PM (Friday Closed 1:00 PM - 2:30 PM)"
                     value={openingHours}
                     onChange={(e) => setOpeningHours(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
@@ -1050,6 +1114,83 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
                 className="w-5 h-5 accent-emerald-600 rounded cursor-pointer"
               />
             </div>
+
+            {/* Alternative Water Options if not selling Elegancia */}
+            {!hasEleganciaWater ? (
+              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-2xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="block font-semibold text-slate-800 text-xs">
+                    Alternative Water Source / Brand Available (متبادل منرل واٹر یا فلٹر پانی)
+                  </label>
+                  <span className="text-[10px] text-emerald-800 font-bold bg-white px-2 py-0.5 rounded border border-emerald-200">
+                    {alternativeWater}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    'Nestlé Pure Life',
+                    'Aquafina',
+                    'Gourmet Pure Water',
+                    'Local RO Plant Filtered',
+                    'Tap / Tube Well Water',
+                    'None / Not Selling Water',
+                  ].map((brand) => (
+                    <button
+                      key={brand}
+                      type="button"
+                      onClick={() => setAlternativeWater(brand)}
+                      className={`p-2 rounded-xl border text-xs font-medium text-left transition-colors cursor-pointer ${
+                        alternativeWater === brand
+                          ? 'bg-emerald-600 text-white border-emerald-600 font-bold shadow-2xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-emerald-300'
+                      }`}
+                    >
+                      {brand}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3.5 bg-emerald-50/60 border border-emerald-200 rounded-2xl space-y-2">
+                <div className="font-semibold text-emerald-950 text-xs">
+                  Available Elegancia Sizes in Stock:
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {['500ml Bottled', '1.5L Family Pack', '19L Dispenser Can'].map((size) => {
+                    const isSelected = eleganciaSizes.includes(size);
+                    return (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => {
+                          if (isSelected) {
+                            setEleganciaSizes(eleganciaSizes.filter((s) => s !== size));
+                          } else {
+                            setEleganciaSizes([...eleganciaSizes, size]);
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold cursor-pointer transition-colors ${
+                          isSelected
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-2xs'
+                            : 'bg-white text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    );
+                  })}
+                </div>
+                <label className="flex items-center gap-2 pt-1 text-xs text-emerald-900 font-medium cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isChilled}
+                    onChange={(e) => setIsChilled(e.target.checked)}
+                    className="accent-emerald-600 rounded"
+                  />
+                  <span>Chilled / Cold water bottles available on demand</span>
+                </label>
+              </div>
+            )}
 
             {/* Submit Bar */}
             <div className="pt-3 border-t border-slate-200 flex items-center justify-end gap-3">

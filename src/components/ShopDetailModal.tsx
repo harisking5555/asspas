@@ -37,6 +37,7 @@ interface ShopDetailModalProps {
   onShopUpdated?: (updatedShop: Shop) => void;
   onOpenAuth?: () => void;
   onOpenInAppChat?: (shop: Shop, initialMsg?: string) => void;
+  onOpenFullShop?: (shop: Shop) => void;
 }
 
 export const ShopDetailModal: React.FC<ShopDetailModalProps> = ({
@@ -48,6 +49,7 @@ export const ShopDetailModal: React.FC<ShopDetailModalProps> = ({
   onShopUpdated,
   onOpenAuth,
   onOpenInAppChat,
+  onOpenFullShop,
 }) => {
   const { currentUser, userProfile } = useAuth();
   const [userName, setUserName] = useState('');
@@ -247,6 +249,20 @@ export const ShopDetailModal: React.FC<ShopDetailModalProps> = ({
             </div>
 
             <div className="flex items-center gap-1.5">
+              {onOpenFullShop && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenFullShop(shop);
+                  }}
+                  className="px-2.5 py-1 bg-white/90 hover:bg-white text-emerald-800 rounded-full font-bold text-[10px] shadow-md flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Open Full Page Profile"
+                >
+                  <ExternalLink className="w-3 h-3 text-emerald-600" />
+                  <span className="hidden sm:inline">Full Profile</span>
+                </button>
+              )}
               <button
                 onClick={handleShare}
                 className="w-8 h-8 rounded-full bg-white/90 hover:bg-white text-slate-700 flex items-center justify-center shadow-md transition-transform active:scale-95 cursor-pointer"

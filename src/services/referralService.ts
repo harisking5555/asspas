@@ -11,6 +11,8 @@ import {
 import { db } from '../lib/firebase';
 import { ReferralNode, PointTransaction } from '../types';
 
+import QRCode from 'qrcode';
+
 /**
  * Generate clean referral link for the current domain or asspas.store
  */
@@ -20,6 +22,46 @@ export function getReferralLink(codeOrUid: string): string {
     return `${origin}/?ref=${encodeURIComponent(codeOrUid)}`;
   }
   return `https://asspas.store/?ref=${encodeURIComponent(codeOrUid)}`;
+}
+
+/**
+ * Generate high-definition QR code data URL for a referral link or text
+ */
+export async function generateQrCodeDataUrl(text: string): Promise<string> {
+  try {
+    return await QRCode.toDataURL(text, {
+      width: 300,
+      margin: 2,
+      color: {
+        dark: '#064e3b', // Deep brand emerald
+        light: '#ffffff',
+      },
+    });
+  } catch (err) {
+    console.warn('QR code generation error:', err);
+    return '';
+  }
+}
+
+/**
+ * Calculate user's star progression (1 to 10 Stars)
+ * - 3 direct children = Star 1
+ * - 3 children with Star 1 = Star 2, continuing up to Star 10
+ */
+export function calculateStarLevel(directReferralsCount: number, childrenStars: number[] = []): number {
+  if (directReferralsCount < 3) return 0;
+  let currentStar = 1;
+
+  for (let targetStar = 1; targetStar < 10; targetStar++) {
+    const qualifiedChildren = childrenStars.filter((s) => s >= targetStar).length;
+    if (qualifiedChildren >= 3) {
+      currentStar = targetStar + 1;
+    } else {
+      break;
+    }
+  }
+
+  return Math.min(10, currentStar);
 }
 
 /**

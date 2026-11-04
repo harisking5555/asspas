@@ -75,6 +75,7 @@ export interface Shop {
     canPrice?: string;
     note?: string;
   };
+  alternativeWater?: string;
   catalog?: CatalogItem[];
   tags: string[];
   image: string;
@@ -122,8 +123,13 @@ export interface UserProfile {
   email: string;
   photoURL?: string;
   phone: string;
+  address?: string;
+  province?: string;
   city?: string;
+  area?: string;
   role: 'user' | 'admin';
+  status?: 'active' | 'suspended';
+  lastActive?: string;
   points: number;
   referralCode: string;
   referredBy?: string | null;
@@ -134,9 +140,39 @@ export interface UserProfile {
   referredCount: number;
   isLoggedIn: boolean;
   favorites: string[];
+  favoriteProducts?: string[];
   shopsCount?: number;
   transactions?: PointTransaction[];
   createdAt?: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userPhone?: string;
+  type: 'complaint' | 'feedback' | 'suggestion';
+  category?: string;
+  subject: string;
+  message: string;
+  status: 'pending' | 'in_review' | 'resolved' | 'closed';
+  adminReply?: string;
+  adminRepliedAt?: string;
+  createdAt: string;
+}
+
+export interface ShopPost {
+  id: string;
+  shopId: string;
+  shopName: string;
+  ownerId: string;
+  title: string;
+  content: string;
+  images: string[];
+  linkUrl?: string;
+  status: 'approved' | 'pending' | 'rejected';
+  createdAt: string;
 }
 
 export interface ReferralNode {
@@ -177,8 +213,11 @@ export interface PlatformAd {
   description: string;
   mediaType: 'image' | 'video';
   mediaUrl: string;
+  sectionType?: 'top_products' | 'top_shops' | 'featured_ads';
+  targetProvince?: string;
   targetCity?: string; // e.g. "Peshawar" or "All"
   targetArea?: string;
+  targetMarket?: string;
   linkedShopId?: string;
   whatsappContact?: string;
   whatsappNumber?: string;
@@ -210,4 +249,4 @@ export interface AuditLogItem {
   timestamp: string;
 }
 
-export type MainNavTab = 'home' | 'shops' | 'categories' | 'elegancia' | 'rewards' | 'favorites' | 'admin' | 'my-shops';
+export type MainNavTab = 'home' | 'shops' | 'categories' | 'elegancia' | 'rewards' | 'favorites' | 'admin' | 'my-shops' | 'profile' | 'shop-view';

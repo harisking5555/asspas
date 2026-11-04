@@ -8,6 +8,7 @@ import {
   deleteDoc, 
   query, 
   where, 
+  orderBy,
   serverTimestamp,
   increment,
   addDoc
@@ -39,55 +40,65 @@ export function calculateHaversineDistance(
 
 export async function fetchShopsFromDb(): Promise<Shop[]> {
   try {
-    const q = query(collection(db, 'shops'));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      const dbShops: Shop[] = snap.docs.map((docSnap) => {
-        const data = docSnap.data();
-        return {
-          id: docSnap.id,
-          name: data.name || 'Local Shop',
-          category: data.category || 'Grocery & Daily Needs',
-          subCategory: data.subCategory || '',
-          itemType: (data.itemType as GoodsOrServiceType) || 'goods',
-          shopType: data.shopType || 'Retail Store',
-          rating: data.rating || 4.5,
-          reviewsCount: data.reviewsCount || 1,
-          distance: data.distance || 0.8,
-          address: data.address || '',
-          area: data.area || '',
-          city: data.city || 'Peshawar',
-          province: data.province || 'Khyber Pakhtunkhwa',
-          isOpen: data.isOpen !== undefined ? data.isOpen : true,
-          openingHours: data.openingHours || '9:00 AM - 10:00 PM',
-          phone: data.phone || '',
-          whatsapp: data.whatsapp || '',
-          email: data.email || '',
-          hasEleganciaWater: !!data.hasEleganciaWater,
-          eleganciaDetails: data.eleganciaDetails || undefined,
-          catalog: data.catalog || [],
-          tags: data.tags || [],
-          image: data.image || '',
-          images: data.images || [],
-          coords: data.coords || { lat: 34.0151, lng: 71.5249, mapX: 50, mapY: 50 },
-          verified: !!data.verified,
-          featured: !!data.featured,
-          status: data.status || 'approved',
-          ownerId: data.ownerId || '',
-          ownerName: data.ownerName || 'Verified Merchant',
-          description: data.description || '',
-          followersCount: data.followersCount || 0,
-          unlockedBadges: data.unlockedBadges || [],
-          reviews: data.reviews || [],
-          createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
-        };
-      });
-      return dbShops;
-    }
+    const fetchPromise = (async () => {
+      const q = query(collection(db, 'shops'));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        const dbShops: Shop[] = snap.docs.map((docSnap) => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            name: data.name || 'Local Shop',
+            category: data.category || 'Grocery & Daily Needs',
+            subCategory: data.subCategory || '',
+            itemType: (data.itemType as GoodsOrServiceType) || 'goods',
+            shopType: data.shopType || 'Retail Store',
+            rating: data.rating || 4.5,
+            reviewsCount: data.reviewsCount || 1,
+            distance: data.distance || 0.8,
+            address: data.address || '',
+            area: data.area || '',
+            city: data.city || 'Peshawar',
+            province: data.province || 'Khyber Pakhtunkhwa',
+            isOpen: data.isOpen !== undefined ? data.isOpen : true,
+            openingHours: data.openingHours || '9:00 AM - 10:00 PM',
+            phone: data.phone || '',
+            whatsapp: data.whatsapp || '',
+            email: data.email || '',
+            hasEleganciaWater: !!data.hasEleganciaWater,
+            eleganciaDetails: data.eleganciaDetails || undefined,
+            catalog: data.catalog || [],
+            tags: data.tags || [],
+            image: data.image || '',
+            images: data.images || [],
+            coords: data.coords || { lat: 34.0151, lng: 71.5249, mapX: 50, mapY: 50 },
+            verified: !!data.verified,
+            featured: !!data.featured,
+            status: data.status || 'approved',
+            ownerId: data.ownerId || '',
+            ownerName: data.ownerName || 'Verified Merchant',
+            description: data.description || '',
+            followersCount: data.followersCount || 0,
+            unlockedBadges: data.unlockedBadges || [],
+            reviews: data.reviews || [],
+            createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
+          };
+        });
+        return dbShops;
+      }
+      return INITIAL_SHOPS;
+    })();
+
+    // Timeout protection: if network or backend takes > 4s, return initial dataset instantly
+    const timeoutPromise = new Promise<Shop[]>((resolve) => {
+      setTimeout(() => resolve(INITIAL_SHOPS), 4000);
+    });
+
+    return await Promise.race([fetchPromise, timeoutPromise]);
   } catch (err) {
     console.warn('Could not load shops from Firestore, using initial dataset:', err);
+    return INITIAL_SHOPS;
   }
-  return INITIAL_SHOPS;
 }
 
 /**
@@ -95,8 +106,10 @@ export async function fetchShopsFromDb(): Promise<Shop[]> {
  */
 export async function seedInitialShopsIfEmpty(): Promise<void> {
   try {
-    const snap = await getDocs(collection(db, 'shops'));
-    if (snap.empty) {
+    const fetchPromise = getDocs(collection(db, 'shops'));
+    const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject('timeout'), 4000));
+    const snap = await Promise.race([fetchPromise, timeoutPromise]);
+    if (snap && snap.empty) {
       for (const s of INITIAL_SHOPS) {
         const shopWithDefaults: Shop = {
           ...s,
@@ -108,11 +121,11 @@ export async function seedInitialShopsIfEmpty(): Promise<void> {
         await setDoc(doc(db, 'shops', s.id), {
           ...shopWithDefaults,
           createdAt: serverTimestamp(),
-        });
+        }).catch(() => {});
       }
     }
-  } catch (err) {
-    console.warn('Could not seed initial shops:', err);
+  } catch {
+    // Graceful silent fallback if offline or backend is delayed
   }
 }
 
@@ -139,9 +152,9 @@ export async function createShopInDb(
     updatedAt: serverTimestamp(),
   });
 
-  let pointsAwarded = 0;
+  let pointsAwarded = 100;
 
-  // Check if this is the user's first shop
+  // Process Rewards & Points
   try {
     const userRef = doc(db, 'users', ownerUid);
     const userSnap = await getDoc(userRef);
@@ -149,23 +162,44 @@ export async function createShopInDb(
     if (userSnap.exists()) {
       const userData = userSnap.data();
       const currentShopCount = userData.shopsCount || 0;
+      const currentPoints = userData.points || 0;
       const isFirstShop = currentShopCount === 0;
 
+      // 1. Award 100 PTS to the user for creating their shop
+      const updatedUserPoints = currentPoints + 100;
       await updateDoc(userRef, {
         shopsCount: currentShopCount + 1,
+        points: updatedUserPoints,
         updatedAt: serverTimestamp(),
       });
 
-      // If user was referred by someone and creates their FIRST shop,
-      // award 50 points to the inviter!
+      await addDoc(collection(db, 'pointsLedger'), {
+        userId: ownerUid,
+        eventType: 'shop_created',
+        points: 100,
+        balanceAfter: updatedUserPoints,
+        referenceId: shopId,
+        description: `Earned +100 PTS for registering store: ${shopData.name}`,
+        createdAt: serverTimestamp(),
+      });
+
+      // 2. If first shop and user was referred by someone, award direct parent 50 PTS
       if (isFirstShop && userData.referredBy) {
-        // Find inviter by referral code
+        // Find inviter by referral code or UID
+        let inviterDoc: any = null;
         const q = query(collection(db, 'users'), where('referralCode', '==', userData.referredBy));
         const inviterSnap = await getDocs(q);
         if (!inviterSnap.empty) {
-          const inviterDoc = inviterSnap.docs[0];
+          inviterDoc = inviterSnap.docs[0];
+        } else {
+          const directSnap = await getDoc(doc(db, 'users', userData.referredBy));
+          if (directSnap.exists()) inviterDoc = directSnap;
+        }
+
+        if (inviterDoc) {
           const inviterUid = inviterDoc.id;
-          const currentInviterPoints = inviterDoc.data().points || 0;
+          const inviterData = inviterDoc.data();
+          const currentInviterPoints = inviterData.points || 0;
           const updatedInviterPoints = currentInviterPoints + 50;
 
           await updateDoc(doc(db, 'users', inviterUid), {
@@ -173,25 +207,137 @@ export async function createShopInDb(
             updatedAt: serverTimestamp(),
           });
 
-          // Immutable ledger entry
           await addDoc(collection(db, 'pointsLedger'), {
             userId: inviterUid,
             eventType: 'referred_first_shop',
             points: 50,
             balanceAfter: updatedInviterPoints,
             referenceId: shopId,
-            description: `Earned 50 pts: Referred user ${userData.name} opened their first shop (${shopData.name})`,
+            description: `Earned +50 PTS: Referred friend ${userData.name || 'Member'} opened store (${shopData.name})`,
             createdAt: serverTimestamp(),
           });
-          pointsAwarded = 50;
+
+          // 3. Multi-tier indirect referral rewards
+          // Level 1 indirect parent: 5 points
+          const level1ParentId = inviterData.matrixParentId;
+          if (level1ParentId) {
+            try {
+              const l1Snap = await getDoc(doc(db, 'users', level1ParentId));
+              if (l1Snap.exists()) {
+                const l1Data = l1Snap.data();
+                const l1Points = (l1Data.points || 0) + 5;
+                await updateDoc(doc(db, 'users', level1ParentId), {
+                  points: l1Points,
+                  updatedAt: serverTimestamp(),
+                });
+                await addDoc(collection(db, 'pointsLedger'), {
+                  userId: level1ParentId,
+                  eventType: 'referral_reward',
+                  points: 5,
+                  balanceAfter: l1Points,
+                  referenceId: shopId,
+                  description: `Indirect Reward: Level 1 downline member created a store (+5 PTS)`,
+                  createdAt: serverTimestamp(),
+                });
+
+                // Level 2 indirect parent: 10 points
+                const level2ParentId = l1Data.matrixParentId;
+                if (level2ParentId) {
+                  const l2Snap = await getDoc(doc(db, 'users', level2ParentId));
+                  if (l2Snap.exists()) {
+                    const l2Points = (l2Snap.data()?.points || 0) + 10;
+                    await updateDoc(doc(db, 'users', level2ParentId), {
+                      points: l2Points,
+                      updatedAt: serverTimestamp(),
+                    });
+                    await addDoc(collection(db, 'pointsLedger'), {
+                      userId: level2ParentId,
+                      eventType: 'referral_reward',
+                      points: 10,
+                      balanceAfter: l2Points,
+                      referenceId: shopId,
+                      description: `Indirect Reward: Level 2 downline member created a store (+10 PTS)`,
+                      createdAt: serverTimestamp(),
+                    });
+                  }
+                }
+              }
+            } catch (err) {
+              console.warn('Indirect points error:', err);
+            }
+          }
         }
       }
     }
   } catch (err) {
-    console.warn('Error processing first shop points reward:', err);
+    console.warn('Error processing shop points reward:', err);
   }
 
   return { success: true, shopId, pointsAwarded };
+}
+
+/**
+ * Create a shop post (promotional / updates)
+ */
+export async function createShopPost(postData: {
+  shopId: string;
+  shopName: string;
+  ownerId: string;
+  title: string;
+  content: string;
+  images: string[];
+  linkUrl?: string;
+}): Promise<{ success: boolean; id?: string; error?: string }> {
+  try {
+    const docRef = await addDoc(collection(db, 'shopPosts'), {
+      ...postData,
+      status: 'approved', // auto approved or can be moderated by admin
+      createdAt: serverTimestamp(),
+    });
+    return { success: true, id: docRef.id };
+  } catch (err: any) {
+    console.error('Failed to create shop post:', err);
+    return { success: false, error: err?.message || 'Failed to publish post' };
+  }
+}
+
+/**
+ * Fetch shop posts
+ */
+export async function fetchShopPosts(shopId?: string): Promise<any[]> {
+  try {
+    let q;
+    if (shopId) {
+      q = query(collection(db, 'shopPosts'), where('shopId', '==', shopId));
+    } else {
+      q = query(collection(db, 'shopPosts'), orderBy('createdAt', 'desc'));
+    }
+    const snap = await getDocs(q);
+    return snap.docs.map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        ...data,
+        createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
+      };
+    });
+  } catch (err) {
+    console.warn('Could not fetch shop posts:', err);
+    return [];
+  }
+}
+
+/**
+ * Delete a shop from Firestore
+ */
+export async function deleteShopFromDb(shopId: string): Promise<boolean> {
+  try {
+    await deleteDoc(doc(db, 'shops', shopId));
+    return true;
+  } catch (err) {
+    console.error('Failed to delete shop:', err);
+    return false;
+  }
 }
 
 /**

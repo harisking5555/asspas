@@ -47,7 +47,15 @@ interface AuthContextType {
     pass: string,
     isSignUp?: boolean,
     name?: string,
-    referralCodeInput?: string
+    referralCodeInput?: string,
+    extraDetails?: {
+      phone?: string;
+      address?: string;
+      province?: string;
+      city?: string;
+      area?: string;
+      photoURL?: string;
+    }
   ) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
   signInWithAdminCredentials: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signInAsTestMember: (email?: string, name?: string, asAdmin?: boolean) => void;
@@ -55,6 +63,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
   toggleFavorite: (shopId: string) => Promise<void>;
+  toggleFavoriteProduct: (productId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -105,16 +114,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           email: userSnapData.email || fbUser?.email || '',
           photoURL: userSnapData.photoURL || fbUser?.photoURL || '',
           phone: userSnapData.phone || '',
+          address: userSnapData.address || '',
+          province: userSnapData.province || '',
+          city: userSnapData.city || 'Peshawar',
+          area: userSnapData.area || '',
           role: userIsAdmin ? 'admin' : (userSnapData.role || 'user'),
+          status: userSnapData.status || 'active',
+          lastActive: userSnapData.lastActive || new Date().toISOString(),
           points: userSnapData.points ?? 0,
           referralCode: userSnapData.referralCode || generateReferralCode(),
           referredBy: userSnapData.referredBy || null,
           hasReferralPrivileges: userSnapData.hasReferralPrivileges ?? false,
           matrixParentId: userSnapData.matrixParentId || null,
           matrixLevel: userSnapData.matrixLevel || 1,
+          starLevel: userSnapData.starLevel || (userSnapData.referredCount >= 3 ? Math.min(10, Math.floor(userSnapData.referredCount / 3)) : 0),
           referredCount: userSnapData.referredCount ?? 0,
           isLoggedIn: true,
           favorites: userSnapData.favorites || [],
+          favoriteProducts: userSnapData.favoriteProducts || [],
           shopsCount: userSnapData.shopsCount ?? 0,
           createdAt: userSnapData.createdAt ? new Date(userSnapData.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
         };
@@ -293,7 +310,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     pass: string,
     isSignUp: boolean = false,
     name?: string,
-    referralCodeInput?: string
+    referralCodeInput?: string,
+    extraDetails?: {
+      phone?: string;
+      address?: string;
+      province?: string;
+      city?: string;
+      area?: string;
+      photoURL?: string;
+    }
   ): Promise<{ success: boolean; isNewUser?: boolean; error?: string }> => {
     try {
       setLoading(true);
@@ -334,18 +359,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: fbUser.uid,
           name: name?.trim() || fbUser.displayName || 'Member',
           email: fbUser.email || '',
-          photoURL: '',
-          phone: '',
+          photoURL: extraDetails?.photoURL || '',
+          phone: extraDetails?.phone || '',
+          address: extraDetails?.address || '',
+          province: extraDetails?.province || '',
+          city: extraDetails?.city || 'Peshawar',
+          area: extraDetails?.area || '',
           role: userIsAdmin ? 'admin' : 'user',
+          status: 'active',
+          lastActive: new Date().toISOString(),
           points: initialPoints,
           referralCode: myReferralCode,
           referredBy: validInviterUid ? codeUsed : null,
           hasReferralPrivileges: hasPrivileges,
           matrixParentId: validInviterUid,
           matrixLevel: 1,
+          starLevel: 0,
           referredCount: 0,
           shopsCount: 0,
           favorites: [],
+          favoriteProducts: [],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
@@ -372,18 +405,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           id: fbUser.uid,
           name: name?.trim() || fbUser.displayName || 'Member',
           email: fbUser.email || '',
-          photoURL: '',
-          phone: '',
+          photoURL: extraDetails?.photoURL || '',
+          phone: extraDetails?.phone || '',
+          address: extraDetails?.address || '',
+          province: extraDetails?.province || '',
+          city: extraDetails?.city || 'Peshawar',
+          area: extraDetails?.area || '',
           role: userIsAdmin ? 'admin' : 'user',
+          status: 'active',
+          lastActive: new Date().toISOString(),
           points: initialPoints,
           referralCode: myReferralCode,
           referredBy: validInviterUid ? codeUsed : null,
           hasReferralPrivileges: hasPrivileges,
           matrixParentId: validInviterUid,
           matrixLevel: 1,
+          starLevel: 0,
           referredCount: 0,
           isLoggedIn: true,
           favorites: [],
+          favoriteProducts: [],
           shopsCount: 0,
         };
 
@@ -594,6 +635,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const toggleFavoriteProduct = async (productId: string) => {
+    if (!userProfile) return;
+    const currentFavs = userProfile.favoriteProducts || [];
+    const isFav = currentFavs.includes(productId);
+    const newFavs = isFav
+      ? currentFavs.filter((id) => id !== productId)
+      : [...currentFavs, productId];
+
+    setUserProfile((prev) => (prev ? { ...prev, favoriteProducts: newFavs } : null));
+
+    if (currentUser) {
+      try {
+        await updateDoc(doc(db, 'users', currentUser.uid), {
+          favoriteProducts: newFavs,
+          updatedAt: serverTimestamp(),
+        });
+      } catch (err) {
+        console.warn('Could not update favorite products in Firestore:', err);
+      }
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -609,6 +672,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logout,
         refreshUserProfile,
         toggleFavorite,
+        toggleFavoriteProduct,
       }}
     >
       {children}

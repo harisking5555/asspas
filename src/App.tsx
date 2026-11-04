@@ -38,7 +38,9 @@ import { CategoriesView } from './components/CategoriesView';
 import { RewardsClubView } from './components/RewardsClubView';
 import { AllShopsDirectoryView } from './components/AllShopsDirectoryView';
 import { MyStoresView } from './components/MyStoresView';
-import { AdsGallery } from './components/AdsGallery';
+import { HomepageGallery } from './components/HomepageGallery';
+import { UserProfileView } from './components/UserProfileView';
+import { FullShopProfileView } from './components/FullShopProfileView';
 import { InAppWhatsAppChat } from './components/InAppWhatsAppChat';
 import { CitySelectorModal } from './components/CitySelectorModal';
 import { AboutModal } from './components/AboutModal';
@@ -53,6 +55,7 @@ import { useAuth } from './context/AuthContext';
 import { fetchShopsFromDb, seedInitialShopsIfEmpty, calculateHaversineDistance } from './services/shopService';
 import { seedCategoriesIfEmpty } from './services/categoryService';
 import { PlatformAd } from './types';
+import { PAKISTAN_REGIONS } from './data/pakistanRegions';
 
 export default function App() {
   const { currentUser, userProfile, isAdmin, toggleFavorite: authToggleFavorite } = useAuth();
@@ -202,10 +205,28 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<ShopCategory>('All Categories');
   const [selectedShopType, setSelectedShopType] = useState<ShopType>('All Shops');
+  const [selectedArea, setSelectedArea] = useState<string>('All Areas');
   const [minRating, setMinRating] = useState<number>(0);
   const [radiusKm, setRadiusKm] = useState<number | null>(null);
   const [onlyElegancia, setOnlyElegancia] = useState<boolean>(false);
-  const [sortBy, setSortBy] = useState<'nearest' | 'rating' | 'reviews'>('nearest');
+  const [sortBy, setSortBy] = useState<'nearest' | 'alphabetical' | 'rating' | 'reviews'>('nearest');
+
+  // Compute unique areas/markets for the active city
+  const availableAreas = useMemo(() => {
+    const cityShops = shops.filter((s) => s.city.toLowerCase() === activeCity.toLowerCase());
+    const areaSet = new Set<string>();
+    cityShops.forEach((s) => {
+      if (s.area) areaSet.add(s.area.trim());
+    });
+    // Also include popular areas from PAKISTAN_REGIONS
+    const regCity = PAKISTAN_REGIONS.flatMap((p) => p.cities).find(
+      (c) => c.name.toLowerCase() === activeCity.toLowerCase()
+    );
+    if (regCity?.popularAreas) {
+      regCity.popularAreas.forEach((a) => areaSet.add(a.trim()));
+    }
+    return ['All Areas', ...Array.from(areaSet).filter(Boolean).sort()];
+  }, [shops, activeCity]);
 
   // Selection & Modal States
   const [selectedShop, setSelectedShop] = useState<Shop | null>(INITIAL_SHOPS[0]);
@@ -411,6 +432,15 @@ export default function App() {
           return false;
         }
 
+        // Area / Bazaar filter
+        if (selectedArea !== 'All Areas') {
+          const areaLower = selectedArea.toLowerCase();
+          const matchArea =
+            (shop.area && shop.area.toLowerCase().includes(areaLower)) ||
+            (shop.address && shop.address.toLowerCase().includes(areaLower));
+          if (!matchArea) return false;
+        }
+
         // Min rating filter
         if (minRating > 0 && shop.rating < minRating) return false;
 
@@ -436,6 +466,7 @@ export default function App() {
         return true;
       })
       .sort((a, b) => {
+        if (sortBy === 'alphabetical') return a.name.localeCompare(b.name);
         if (sortBy === 'rating') return b.rating - a.rating;
         if (sortBy === 'reviews') return b.reviewsCount - a.reviewsCount;
         return a.distance - b.distance;
@@ -445,6 +476,7 @@ export default function App() {
     activeTab,
     user.favorites,
     activeCity,
+    selectedArea,
     onlyElegancia,
     selectedCategory,
     selectedShopType,
@@ -462,6 +494,7 @@ export default function App() {
   const handleResetFilters = () => {
     setSelectedCategory('All Categories');
     setSelectedShopType('All Shops');
+    setSelectedArea('All Areas');
     setMinRating(0);
     setRadiusKm(null);
     setOnlyElegancia(false);
@@ -559,9 +592,10 @@ export default function App() {
             />
           </div>
 
-          {/* Featured Ads & Promotional Video Showcase (Item 6 & 10) */}
-          <AdsGallery
+          {/* Featured Ads & Top Products / Shops Showcase (Item 9) */}
+          <HomepageGallery
             ads={platformAds}
+            shops={shops}
             activeCity={activeCity}
             onSelectShop={(sId) => {
               const found = shops.find((s) => s.id === sId);
@@ -579,6 +613,7 @@ export default function App() {
           {/* Active Filter Pill Summary */}
           {(selectedCategory !== 'All Categories' ||
             selectedShopType !== 'All Shops' ||
+            selectedArea !== 'All Areas' ||
             minRating > 0 ||
             radiusKm !== null ||
             onlyElegancia ||
@@ -595,6 +630,11 @@ export default function App() {
                   {selectedShopType !== 'All Shops' && (
                     <span className="bg-white border border-emerald-200 px-2 py-0.5 rounded text-emerald-800 font-medium">
                       {selectedShopType}
+                    </span>
+                  )}
+                  {selectedArea !== 'All Areas' && (
+                    <span className="bg-white border border-emerald-200 px-2 py-0.5 rounded text-emerald-800 font-medium">
+                      Area: {selectedArea}
                     </span>
                   )}
                   {minRating > 0 && (
@@ -691,8 +731,8 @@ export default function App() {
               </div>
             )}
 
-            {/* Split Layout: Filter Sidebar (Left) + Multi-column Catalog Grid (Right) */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
+            {/* Split 3-Column Layout: Filter Sidebar (Left) + Catalog Grid (Middle) + Locations/Bazaars Sidebar (Right) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start w-full">
               {/* Left Column: Filter Sidebar (Desktop) */}
               <div className="hidden lg:block lg:col-span-3 sticky top-20">
                 <FilterSidebar
@@ -711,8 +751,8 @@ export default function App() {
                 />
               </div>
 
-              {/* Right Column: Expansive Marketplace Catalog Grid (Spans 9 columns on desktop) */}
-              <div className="lg:col-span-9 flex flex-col gap-4">
+              {/* Middle Column: Marketplace Catalog Grid (Spans 6 columns on desktop) */}
+              <div className="lg:col-span-6 flex flex-col gap-4">
                 {/* Catalog Header Bar */}
                 <div className="flex items-center justify-between bg-white px-4 py-3 rounded-2xl border border-slate-200/90 shadow-2xs flex-wrap gap-2">
                   <div className="flex items-center gap-2">
@@ -732,7 +772,8 @@ export default function App() {
                       onChange={(e) => setSortBy(e.target.value as any)}
                       className="bg-slate-50 border border-slate-200 text-slate-700 text-xs rounded-xl px-2.5 py-1.5 outline-none font-semibold cursor-pointer"
                     >
-                      <option value="nearest">Nearest</option>
+                      <option value="nearest">Nearest First</option>
+                      <option value="alphabetical">Alphabetical (A - Z)</option>
                       <option value="rating">Top Rated</option>
                       <option value="reviews">Most Reviews</option>
                     </select>
@@ -741,7 +782,7 @@ export default function App() {
 
                 {/* Multi-column Shops Catalog Grid */}
                 {filteredShops.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {filteredShops.map((shop) => (
                       <ShopCard
                         key={shop.id}
@@ -774,6 +815,104 @@ export default function App() {
                     </button>
                   </div>
                 )}
+              </div>
+
+              {/* Right Column: Markets & Commercial Hubs Directory Sidebar (Desktop) */}
+              <div className="hidden lg:flex lg:col-span-3 flex-col gap-4 sticky top-20">
+                {/* 1. Markets & Bazaars in City */}
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="w-4 h-4 text-emerald-600" />
+                      <span className="font-bold text-slate-900 text-xs font-['Outfit']">
+                        Markets in {activeCity}
+                      </span>
+                    </div>
+                    <button
+                      onClick={() => setIsCityModalOpen(true)}
+                      className="text-[10px] font-bold text-emerald-700 hover:underline cursor-pointer"
+                    >
+                      Change City
+                    </button>
+                  </div>
+
+                  <div className="flex flex-col gap-1 max-h-[320px] overflow-y-auto pr-1">
+                    {availableAreas.map((areaName) => {
+                      const count = areaName === 'All Areas'
+                        ? shops.filter(s => s.city.toLowerCase() === activeCity.toLowerCase()).length
+                        : shops.filter(s => s.city.toLowerCase() === activeCity.toLowerCase() && (s.area?.toLowerCase() === areaName.toLowerCase() || s.address?.toLowerCase().includes(areaName.toLowerCase()))).length;
+                      const isSelected = selectedArea === areaName;
+
+                      return (
+                        <button
+                          key={areaName}
+                          onClick={() => setSelectedArea(areaName)}
+                          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all text-left cursor-pointer ${
+                            isSelected
+                              ? 'bg-emerald-600 text-white font-bold shadow-xs'
+                              : 'bg-slate-50 hover:bg-emerald-50/70 text-slate-700'
+                          }`}
+                        >
+                          <span className="truncate">{areaName}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold shrink-0 ml-1.5 ${
+                            isSelected ? 'bg-emerald-700 text-white' : 'bg-slate-200/80 text-slate-600'
+                          }`}>
+                            {count}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 2. Elegancia Water Official Hub Card */}
+                <div className="bg-gradient-to-br from-emerald-800 via-teal-800 to-emerald-950 text-white rounded-2xl p-4 shadow-xs space-y-2.5 border border-emerald-700">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-300 flex items-center justify-center">
+                      <Droplet className="w-4 h-4 fill-emerald-300 text-emerald-300" />
+                    </div>
+                    <div>
+                      <div className="font-bold text-xs">Elegancia Mineral Water</div>
+                      <div className="text-[10px] text-emerald-200/80">Certified Pure Hydration</div>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-emerald-100/90 leading-relaxed">
+                    Order 19L cans, 1.5L family bottles & 500ml packs from verified stockists across {activeCity}.
+                  </p>
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      onClick={() => setOnlyElegancia(!onlyElegancia)}
+                      className={`flex-1 py-1.5 px-2.5 rounded-xl text-[11px] font-bold text-center cursor-pointer transition-all ${
+                        onlyElegancia ? 'bg-white text-emerald-950 shadow-sm' : 'bg-emerald-700 hover:bg-emerald-600 text-white'
+                      }`}
+                    >
+                      {onlyElegancia ? '✓ Showing Stockists' : 'Filter Water Stores'}
+                    </button>
+                    <button
+                      onClick={() => handleSelectTab('elegancia')}
+                      className="px-2.5 py-1.5 bg-emerald-900/60 hover:bg-emerald-900 text-emerald-200 rounded-xl text-[11px] font-bold border border-emerald-500/30 cursor-pointer"
+                    >
+                      Portal →
+                    </button>
+                  </div>
+                </div>
+
+                {/* 3. Register Business Free Card */}
+                <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs space-y-2 text-center">
+                  <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto">
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <div className="font-bold text-xs text-slate-900">Own a Shop in {activeCity}?</div>
+                  <p className="text-[11px] text-slate-500">
+                    Add your business in 2 minutes. Get direct customer orders on WhatsApp & earn +100 PTS!
+                  </p>
+                  <button
+                    onClick={handleOpenAddShop}
+                    className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer transition-colors"
+                  >
+                    + Register Free (+100 PTS)
+                  </button>
+                </div>
               </div>
             </div>
           </main>
@@ -904,6 +1043,39 @@ export default function App() {
         </div>
       )}
 
+      {/* View: User Profile (Member Portal & 3x3 Matrix) */}
+      {activeTab === 'profile' && (
+        <div className="w-full flex-1">
+          <UserProfileView
+            user={user}
+            shops={shops}
+            onOpenAddShop={handleOpenAddShop}
+            onSelectShop={(s) => {
+              setSelectedShop(s);
+              handleSelectTab('shop-view');
+            }}
+            onOpenShopDetails={(s) => setDetailShop(s)}
+            onBackToHome={() => handleSelectTab('home')}
+          />
+        </div>
+      )}
+
+      {/* View: Full Shop Profile Page (Item 6 & 8) */}
+      {activeTab === 'shop-view' && selectedShop && (
+        <div className="w-full flex-1">
+          <FullShopProfileView
+            shop={selectedShop}
+            onBack={() => handleSelectTab('home')}
+            isFavorite={user.favorites.includes(selectedShop.id)}
+            onToggleFavorite={() => handleToggleFavorite(selectedShop.id)}
+            onOpenInAppChat={(s, msg) => {
+              setActiveChatShop(s);
+            }}
+            onEditShop={() => handleSelectTab('my-shops')}
+          />
+        </div>
+      )}
+
       {/* Full Enterprise Footer */}
       <ValueFooter
         onSelectTab={handleSelectTab}
@@ -963,6 +1135,10 @@ export default function App() {
           onShopUpdated={handleShopUpdated}
           onOpenAuth={() => setIsAuthOpen(true)}
           onOpenInAppChat={(s) => setActiveChatShop(s)}
+          onOpenFullShop={(s) => {
+            setSelectedShop(s);
+            handleSelectTab('shop-view');
+          }}
         />
       )}
 
@@ -1015,6 +1191,7 @@ export default function App() {
         isOpen={isAuthOpen}
         onClose={() => setIsAuthOpen(false)}
         onNavigateToAdmin={() => handleSelectTab('admin')}
+        onNavigateToProfile={() => handleSelectTab('profile')}
       />
 
       {/* Install App & Desktop Shortcut Modal */}

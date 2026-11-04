@@ -1,6 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { initializeFirestore, getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 export const firebaseConfig = {
@@ -16,7 +16,19 @@ export const firebaseConfig = {
 // Initialize Firebase once
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Initialize Firestore with experimentalAutoDetectLongPolling: true
+// This automatically switches to long polling if WebSockets fail or are delayed,
+// preventing the "Could not reach Cloud Firestore backend. Backend didn't respond within 10 seconds" error.
+let firestoreInstance;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    experimentalAutoDetectLongPolling: true,
+  });
+} catch {
+  firestoreInstance = getFirestore(app);
+}
+export const db = firestoreInstance;
 export const storage = getStorage(app);
 
 // Google Auth Provider setup

@@ -53,6 +53,7 @@ import { ALL_PAKISTAN_CITIES, PAKISTAN_REGIONS } from '../data/pakistanRegions';
 import { doc, updateDoc, deleteDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { uploadImageToImgBB } from '../services/imageUploadService';
+import { fetchAllSupportTickets, replyToSupportTicket } from '../services/supportService';
 
 interface AdminPanelProps {
   shops: Shop[];
@@ -205,8 +206,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const loadComplaints = async () => {
     try {
       const snap = await getDocs(collection(db, 'complaints'));
+      let loaded: ComplaintItem[] = [];
       if (!snap.empty) {
-        const loaded: ComplaintItem[] = snap.docs.map((d) => {
+        loaded = snap.docs.map((d) => {
           const data = d.data();
           return {
             id: d.id,
@@ -218,7 +220,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             status: data.status || 'Open',
           };
         });
-        setComplaintsList((prev) => [...loaded, ...prev.filter(p => !loaded.some(l => l.id === p.id))]);
+      }
+
+      // Also load user support tickets (Complaints, Feedback, Suggestions)
+      try {
+        const tickets = await fetchAllSupportTickets();
+        const ticketItems: ComplaintItem[] = tickets.map((t) => ({
+          id: t.id,
+          shopName: t.type ? `[${t.type.toUpperCase()}]` : 'User Ticket',
+          userName: t.userName || 'Member',
+          userPhone: t.userEmail || 'Account',
+          issue: `${t.subject}: ${t.message}`,
+          date: t.createdAt ? new Date(t.createdAt).toLocaleDateString() : 'Recent',
+          status: t.status === 'resolved' ? 'Resolved' : 'Open',
+        }));
+        const combined = [...ticketItems, ...loaded];
+        setComplaintsList((prev) => [...combined, ...prev.filter(p => !combined.some(c => c.id === p.id))]);
+      } catch {
+        if (loaded.length > 0) {
+          setComplaintsList((prev) => [...loaded, ...prev.filter(p => !loaded.some(l => l.id === p.id))]);
+        }
       }
     } catch (err) {
       console.warn('Could not load complaints from Firestore:', err);
@@ -434,20 +455,31 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   };
 
   // Complaints Actions
-  const handleResolveComplaint = (id: string) => {
-    setComplaintsList((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: 'Resolved' } : c))
-    );
-    setStatusMessage('Complaint marked as resolved.');
-    setTimeout(() => setStatusMessage(null), 3000);
+  const handleResolveComplaint = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'complaints', id), { status: 'Resolved' }).catch(() => {});
+      await replyToSupportTicket(id, 'Admin team has reviewed and resolved this ticket. Thank you for your feedback!', 'resolved').catch(() => {});
+      setComplaintsList((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: 'Resolved' } : c))
+      );
+      setStatusMessage('Complaint / Ticket marked as resolved.');
+      setTimeout(() => setStatusMessage(null), 3000);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleDismissComplaint = (id: string) => {
-    setComplaintsList((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: 'Dismissed' } : c))
-    );
-    setStatusMessage('Complaint dismissed.');
-    setTimeout(() => setStatusMessage(null), 3000);
+  const handleDismissComplaint = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'complaints', id), { status: 'Dismissed' }).catch(() => {});
+      setComplaintsList((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: 'Dismissed' } : c))
+      );
+      setStatusMessage('Complaint dismissed.');
+      setTimeout(() => setStatusMessage(null), 3000);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Ads Gallery Manager with ImgBB upload

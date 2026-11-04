@@ -143,26 +143,33 @@ export function matchCategoryOrAlias(queryText: string): CategoryItem | null {
 
 export async function fetchCategoriesFromDb(): Promise<CategoryItem[]> {
   try {
-    const q = query(collection(db, 'categories'), orderBy('order', 'asc'));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      return snap.docs.map((d) => d.data() as CategoryItem);
-    }
+    const fetchPromise = (async () => {
+      const q = query(collection(db, 'categories'), orderBy('order', 'asc'));
+      const snap = await getDocs(q);
+      if (!snap.empty) {
+        return snap.docs.map((d) => d.data() as CategoryItem);
+      }
+      return DEFAULT_CATEGORIES;
+    })();
+    const timeoutPromise = new Promise<CategoryItem[]>((resolve) => setTimeout(() => resolve(DEFAULT_CATEGORIES), 4000));
+    return await Promise.race([fetchPromise, timeoutPromise]);
   } catch (err) {
     console.warn('Using default categories fallback:', err);
+    return DEFAULT_CATEGORIES;
   }
-  return DEFAULT_CATEGORIES;
 }
 
 export async function seedCategoriesIfEmpty(): Promise<void> {
   try {
-    const snap = await getDocs(collection(db, 'categories'));
-    if (snap.empty) {
+    const fetchPromise = getDocs(collection(db, 'categories'));
+    const timeoutPromise = new Promise<any>((_, reject) => setTimeout(() => reject('timeout'), 4000));
+    const snap = await Promise.race([fetchPromise, timeoutPromise]);
+    if (snap && snap.empty) {
       for (const cat of DEFAULT_CATEGORIES) {
-        await setDoc(doc(db, 'categories', cat.id), cat);
+        await setDoc(doc(db, 'categories', cat.id), cat).catch(() => {});
       }
     }
-  } catch (err) {
-    console.warn('Could not seed categories to Firestore:', err);
+  } catch {
+    // Graceful silent fallback if offline or backend is delayed
   }
 }

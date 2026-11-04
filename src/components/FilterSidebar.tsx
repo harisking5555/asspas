@@ -15,6 +15,9 @@ interface FilterSidebarProps {
   onToggleOnlyElegancia: (val: boolean) => void;
   onResetFilters: () => void;
   totalMatches: number;
+  selectedArea?: string;
+  onAreaChange?: (area: string) => void;
+  availableAreas?: string[];
 }
 
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
@@ -30,26 +33,36 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
   onToggleOnlyElegancia,
   onResetFilters,
   totalMatches,
+  selectedArea,
+  onAreaChange,
+  availableAreas = [],
 }) => {
+  // Alphabetically sorted categories per requirement
   const categories: ShopCategory[] = [
     'All Categories',
-    'Grocery & Daily Needs',
-    'Fashion & Clothing',
-    'Electronics & Mobiles',
-    'Home & Living',
-    'Pharmacy & Health',
-    'Books & Stationery',
+    'Automotive & Repairs',
     'Beauty & Personal Care',
-    'Sports & Toys',
+    'Books & Stationery',
+    'Electronics & Mobiles',
+    'Fashion & Clothing',
     'Food & Restaurants',
+    'Grocery & Daily Needs',
+    'Home & Living',
+    'Home Maintenance & Repair',
+    'Pharmacy & Health',
+    'Professional Services',
+    'Sports & Toys',
+    'Tailoring & Boutiques',
   ];
 
   const shopTypes: ShopType[] = [
     'All Shops',
-    'Retail Store',
-    'Wholesale',
+    'Dealer / Distributor',
+    'Producer / Manufacturer',
     'Restaurant / Cafe',
+    'Retail Store',
     'Service Provider',
+    'Wholesale',
   ];
 
   const ratingOptions = [
@@ -126,6 +139,27 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
           ))}
         </select>
       </div>
+
+      {/* Area / Market / Bazaar Filter */}
+      {availableAreas && availableAreas.length > 0 && (
+        <div>
+          <label className="block text-xs font-bold text-slate-800 mb-2">
+            Area / Market / Bazaar
+          </label>
+          <select
+            value={selectedArea || 'All Areas'}
+            onChange={(e) => onAreaChange && onAreaChange(e.target.value)}
+            className="w-full text-xs bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-2.5 font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all cursor-pointer"
+          >
+            <option value="All Areas">All Areas & Bazaars</option>
+            {[...availableAreas].sort().map((a) => (
+              <option key={a} value={a}>
+                {a}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Shop Type Selection */}
       <div>

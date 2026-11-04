@@ -225,21 +225,31 @@ export const Header: React.FC<HeaderProps> = ({
             <span>Shortcut</span>
           </button>
 
-          {/* User Profile Button (Displays User Name when logged in) */}
+          {/* User Profile Button (Opens full profile when logged in, or Auth modal when guest) */}
           <button
-            onClick={onOpenAuthModal}
+            onClick={() => {
+              if (currentUser) {
+                handleNav('profile');
+              } else {
+                onOpenAuthModal();
+              }
+            }}
             className="flex items-center gap-1.5 p-1.5 sm:px-2.5 sm:py-1.5 text-slate-700 hover:text-emerald-800 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-xl transition-all cursor-pointer shadow-2xs shrink-0"
             title={currentUser ? currentUser.displayName || 'Profile' : 'Sign In'}
             aria-label="User Account"
           >
-            {currentUser && currentUser.photoURL ? (
-              <img src={currentUser.photoURL} alt="" className="w-5 h-5 rounded-full object-cover ring-1 ring-emerald-500 shrink-0" />
+            {currentUser && (currentUser.photoURL || userProfile?.photoURL) ? (
+              <img 
+                src={userProfile?.photoURL || currentUser.photoURL || ''} 
+                alt="" 
+                className="w-5 h-5 rounded-full object-cover ring-1 ring-emerald-500 shrink-0" 
+              />
             ) : (
               <User className="w-4 h-4 text-emerald-700 shrink-0" strokeWidth={2} />
             )}
             {currentUser && (
               <span className="text-xs font-bold text-slate-800 max-w-[65px] sm:max-w-[90px] truncate inline">
-                {currentUser.displayName?.split(' ')[0] || userProfile?.name?.split(' ')[0] || 'Member'}
+                {userProfile?.name?.split(' ')[0] || currentUser.displayName?.split(' ')[0] || 'Member'}
               </span>
             )}
           </button>
@@ -320,6 +330,18 @@ export const Header: React.FC<HeaderProps> = ({
 
                   {/* Links Group */}
                   <div className="p-1.5 space-y-0.5">
+                    {currentUser && (
+                      <button
+                        onClick={() => handleNav('profile')}
+                        className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-left transition-colors cursor-pointer ${
+                          activeTab === 'profile' ? 'text-emerald-800 bg-emerald-50/90 font-bold' : 'text-slate-700 hover:bg-slate-50'
+                        }`}
+                      >
+                        <User className="w-4 h-4 text-emerald-600" strokeWidth={2} />
+                        <span className="font-bold text-emerald-950">My Profile & Rewards ({userProfile?.points || 0} PTS)</span>
+                      </button>
+                    )}
+
                     <button
                       onClick={() => handleNav('home')}
                       className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-semibold text-left transition-colors cursor-pointer ${

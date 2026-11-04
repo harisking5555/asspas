@@ -18,23 +18,27 @@ import {
   Share2,
   Check,
   Eye,
-  EyeOff
+  EyeOff,
+  Phone
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { uploadImageToImgBB } from '../services/imageUploadService';
 import { BrandLogo } from './BrandLogo';
 import { getReferralLink } from '../services/referralService';
+import { PAKISTAN_REGIONS } from '../data/pakistanRegions';
 
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   onNavigateToAdmin?: () => void;
+  onNavigateToProfile?: () => void;
 }
 
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
   onNavigateToAdmin,
+  onNavigateToProfile,
 }) => {
   const { 
     currentUser, 
@@ -53,6 +57,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [passwordInput, setPasswordInput] = useState('');
   const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
   const [nameInput, setNameInput] = useState('');
+  const [phoneInput, setPhoneInput] = useState('');
+  const [addressInput, setAddressInput] = useState('');
+  const [provinceInput, setProvinceInput] = useState('Khyber Pakhtunkhwa (KP)');
+  const [cityInput, setCityInput] = useState('Peshawar');
+  const [areaInput, setAreaInput] = useState('');
   const [signupPhotoUrl, setSignupPhotoUrl] = useState('');
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   
@@ -122,12 +131,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     if (!emailInput.trim() || !passwordInput.trim()) return;
 
     if (authMode === 'signup') {
+      if (!nameInput.trim()) {
+        setErrorMsg('Please enter your full name / username.');
+        return;
+      }
       if (passwordInput !== confirmPasswordInput) {
         setErrorMsg('Passwords do not match. Please re-enter your password in both fields.');
         return;
       }
       if (passwordInput.length < 6) {
         setErrorMsg('Password must be at least 6 characters long.');
+        return;
+      }
+      const cleanPhone = phoneInput.replace(/[-\s]/g, '');
+      if (cleanPhone && !/^((\+92|0)?3[0-9]{9})$/.test(cleanPhone)) {
+        setErrorMsg('Please enter a valid Pakistani mobile number (e.g. 03001234567 or 03XX-XXXXXXX).');
         return;
       }
     }
@@ -137,7 +155,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
     const isSignUp = authMode === 'signup';
     const referralToPass = activeStoredReferral || referralCodeInput || undefined;
-    const res = await signInWithEmail(emailInput, passwordInput, isSignUp, nameInput, referralToPass);
+    const res = await signInWithEmail(
+      emailInput, 
+      passwordInput, 
+      isSignUp, 
+      nameInput, 
+      referralToPass,
+      {
+        phone: phoneInput.trim(),
+        address: addressInput.trim(),
+        province: provinceInput,
+        city: cityInput,
+        area: areaInput.trim(),
+        photoURL: signupPhotoUrl,
+      }
+    );
     if (!res.success) {
       setErrorMsg(res.error || 'Email authentication failed.');
     } else {
@@ -459,6 +491,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 </div>
               </div>
 
+              {/* Full Profile View Action */}
+              {onNavigateToProfile && (
+                <button
+                  onClick={() => {
+                    onClose();
+                    onNavigateToProfile();
+                  }}
+                  className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
+                >
+                  <User className="w-4 h-4 text-emerald-100" />
+                  <span>Open Full Member Profile & Rewards Dashboard →</span>
+                </button>
+              )}
+
               {/* Admin Button */}
               {isAdmin && onNavigateToAdmin && (
                 <button
@@ -700,6 +746,96 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                               />
                             </label>
                           </div>
+                        </div>
+                      </div>
+
+                      {/* Phone Number Field */}
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                          Mobile Phone Number (Pakistan) *
+                        </label>
+                        <div className="relative">
+                          <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                          <input
+                            type="tel"
+                            required
+                            placeholder="0300-1234567"
+                            value={phoneInput}
+                            onChange={(e) => setPhoneInput(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Province & City Selection */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Province *
+                          </label>
+                          <select
+                            value={provinceInput}
+                            onChange={(e) => {
+                              setProvinceInput(e.target.value);
+                              const prov = PAKISTAN_REGIONS.find((p) => p.name === e.target.value);
+                              if (prov && prov.cities.length > 0) {
+                                setCityInput(prov.cities[0].name);
+                              }
+                            }}
+                            className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                          >
+                            {PAKISTAN_REGIONS.map((prov) => (
+                              <option key={prov.code} value={prov.name}>
+                                {prov.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            City *
+                          </label>
+                          <select
+                            value={cityInput}
+                            onChange={(e) => setCityInput(e.target.value)}
+                            className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                          >
+                            {(PAKISTAN_REGIONS.find((p) => p.name === provinceInput)?.cities || []).map((c) => (
+                              <option key={c.name} value={c.name}>
+                                {c.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Area & Address */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Area / Sector / Bazaar
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Hayatabad Phase 3"
+                            value={areaInput}
+                            onChange={(e) => setAreaInput(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">
+                            Street Address (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. Street 4, House 12"
+                            value={addressInput}
+                            onChange={(e) => setAddressInput(e.target.value)}
+                            className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
+                          />
                         </div>
                       </div>
                     </>
