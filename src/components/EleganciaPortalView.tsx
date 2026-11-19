@@ -99,28 +99,30 @@ export const EleganciaPortalView: React.FC<EleganciaPortalViewProps> = ({
           </p>
 
           <div className="flex items-center gap-3 pt-2 flex-wrap">
+            <button
+              type="button"
+              onClick={onOpenAddShop}
+              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+            >
+              <Droplet className="w-4 h-4 fill-slate-950" />
+              <span>Open Elegancia Water Shop / Distributor</span>
+            </button>
             <a
               href="https://wa.me/923085599766?text=Hello%2C%20I%20want%20to%20inquire%20about%20Elegancia%20Mineral%20Water"
               target="_blank"
               rel="noreferrer"
-              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-black px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer"
+              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-semibold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 cursor-pointer"
             >
               <MessageCircle className="w-4 h-4" />
               <span>WhatsApp Helpline: 0308-5599766</span>
             </a>
-            <button
-              onClick={onOpenAddShop}
-              className="bg-white/10 hover:bg-white/20 text-white border border-white/20 text-xs font-semibold px-4 py-2.5 rounded-xl transition-all cursor-pointer"
-            >
-              Become an Official Stockist
-            </button>
           </div>
         </div>
 
         {/* Product photo float */}
         <div className="hidden lg:block absolute right-8 top-1/2 -translate-y-1/2 w-80 h-72 rounded-2xl overflow-hidden border-2 border-emerald-400/40 shadow-2xl">
           <img
-            src="/src/assets/images/product_elegancia_water_1793110437317.jpg"
+            src="/images/product_elegancia_water_1793110437317.jpg"
             alt="Elegancia Pure Mineral Water"
             className="w-full h-full object-cover"
           />

@@ -4,11 +4,12 @@ import {
   Navigation, 
   MapPin, 
   ExternalLink, 
-  LocateFixed, 
-  Layers, 
   Check, 
   Compass,
-  AlertCircle
+  AlertCircle,
+  Lock,
+  Unlock,
+  CheckCircle2
 } from 'lucide-react';
 import { ALL_PAKISTAN_CITIES } from '../data/pakistanRegions';
 
@@ -18,6 +19,8 @@ interface MapLocationPickerProps {
   cityName?: string;
   onLocationChange: (lat: number, lng: number) => void;
   shopName?: string;
+  isPinConfirmed?: boolean;
+  onConfirmPin?: (confirmed: boolean) => void;
 }
 
 export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
@@ -26,16 +29,29 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
   cityName = 'Peshawar',
   onLocationChange,
   shopName = 'Your Shop Location',
+  isPinConfirmed = false,
+  onConfirmPin,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
+  const lockedRef = useRef<boolean>(isPinConfirmed);
 
   const [isLocating, setIsLocating] = useState(false);
   const [gpsError, setGpsError] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // High-visibility custom SVG marker icon
+  useEffect(() => {
+    lockedRef.current = isPinConfirmed;
+    if (markerRef.current) {
+      if (isPinConfirmed) {
+        markerRef.current.dragging?.disable();
+      } else {
+        markerRef.current.dragging?.enable();
+      }
+    }
+  }, [isPinConfirmed]);
+
   const createCustomPinIcon = () => {
     return L.divIcon({
       className: 'custom-shop-pin',
@@ -57,7 +73,6 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
     });
   };
 
-  // Initialize Leaflet Map
   useEffect(() => {
     if (!mapContainerRef.current) return;
     if (mapInstanceRef.current) return;
@@ -74,28 +89,26 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
       minZoom: 5,
     });
 
-    // Add crisp OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
     }).addTo(map);
 
-    // Add draggable marker
     const marker = L.marker([initialLat, initialLng], {
       icon: createCustomPinIcon(),
-      draggable: true,
+      draggable: !lockedRef.current,
     }).addTo(map);
 
     marker.bindPopup(`<strong>${shopName}</strong><br/>Drag or click anywhere to adjust location`).openPopup();
 
-    // On marker drag end
     marker.on('dragend', () => {
+      if (lockedRef.current) return;
       const pos = marker.getLatLng();
       onLocationChange(Number(pos.lat.toFixed(6)), Number(pos.lng.toFixed(6)));
     });
 
-    // On map click
     map.on('click', (e: L.LeafletMouseEvent) => {
+      if (lockedRef.current) return;
       marker.setLatLng(e.latlng);
       marker.openPopup();
       onLocationChange(Number(e.latlng.lat.toFixed(6)), Number(e.latlng.lng.toFixed(6)));
@@ -104,7 +117,6 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
     mapInstanceRef.current = map;
     markerRef.current = marker;
 
-    // Invalidate size after modal animation
     const timer = setTimeout(() => {
       map.invalidateSize();
     }, 250);
@@ -117,7 +129,6 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
     };
   }, []);
 
-  // Sync external lat/lng changes with marker and map
   useEffect(() => {
     if (!mapInstanceRef.current || !markerRef.current) return;
     if (!Number.isFinite(lat) || !Number.isFinite(lng) || (lat === 0 && lng === 0)) return;
@@ -131,7 +142,6 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
     }
   }, [lat, lng]);
 
-  // Center on City center if user changes city
   const handleCenterOnCity = () => {
     if (!cityName || !mapInstanceRef.current || !markerRef.current) return;
     const matchedCity = ALL_PAKISTAN_CITIES.find(
@@ -139,13 +149,13 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
     );
 
     if (matchedCity) {
+      if (onConfirmPin && isPinConfirmed) onConfirmPin(false);
       mapInstanceRef.current.flyTo([matchedCity.lat, matchedCity.lng], 14, { duration: 1.2 });
       markerRef.current.setLatLng([matchedCity.lat, matchedCity.lng]);
       onLocationChange(Number(matchedCity.lat.toFixed(6)), Number(matchedCity.lng.toFixed(6)));
     }
   };
 
-  // One-click GPS Location
   const handleDetectGPS = () => {
     setGpsError(null);
     if (!('geolocation' in navigator)) {
@@ -161,11 +171,12 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
         const userLng = Number(pos.coords.longitude.toFixed(6));
 
         onLocationChange(userLat, userLng);
+        if (onConfirmPin) onConfirmPin(true);
 
         if (mapInstanceRef.current && markerRef.current) {
           mapInstanceRef.current.flyTo([userLat, userLng], 17, { duration: 1.5 });
           markerRef.current.setLatLng([userLat, userLng]);
-          markerRef.current.bindPopup(`<strong>Your Current Location</strong><br/>Accurate within ${Math.round(pos.coords.accuracy || 10)}m`).openPopup();
+          markerRef.current.bindPopup(`<strong>Pinned GPS Location</strong><br/>Accurate within ${Math.round(pos.coords.accuracy || 10)}m`).openPopup();
         }
       },
       (err) => {
@@ -194,12 +205,17 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
       {/* Top Map Action Bar */}
       <div className="flex items-center justify-between gap-2 flex-wrap text-xs">
         <div className="flex items-center gap-1.5 font-bold text-slate-800">
-          <MapPin className="w-4 h-4 text-rose-600 animate-bounce" />
+          <MapPin className="w-4 h-4 text-rose-600" />
           <span>Interactive Location Picker (میپ پر پن لگائیں)</span>
+          {isPinConfirmed && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md border border-emerald-300">
+              <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+              Pin Locked
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          {/* Center City Button */}
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
             onClick={handleCenterOnCity}
@@ -210,7 +226,6 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
             <span>Center {cityName}</span>
           </button>
 
-          {/* GPS Auto-Detect Button */}
           <button
             type="button"
             onClick={handleDetectGPS}
@@ -218,8 +233,32 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
             className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
           >
             <Navigation className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} />
-            <span>{isLocating ? 'Detecting GPS...' : '📍 Pin My Exact Location'}</span>
+            <span>{isLocating ? 'Detecting GPS...' : 'Pin My GPS'}</span>
           </button>
+
+          {onConfirmPin && (
+            <button
+              type="button"
+              onClick={() => onConfirmPin(!isPinConfirmed)}
+              className={`px-3 py-1 font-bold rounded-lg text-[11px] flex items-center gap-1.5 transition-all shadow-xs cursor-pointer ${
+                isPinConfirmed
+                  ? 'bg-emerald-900 text-white hover:bg-slate-800'
+                  : 'bg-amber-500 hover:bg-amber-600 text-slate-950'
+              }`}
+            >
+              {isPinConfirmed ? (
+                <>
+                  <Unlock className="w-3.5 h-3.5" />
+                  <span>Unlock Pin</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Save & Lock Pin</span>
+                </>
+              )}
+            </button>
+          )}
         </div>
       </div>
 
@@ -231,13 +270,18 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
       )}
 
       {/* Map Canvas Container */}
-      <div className="relative w-full h-64 sm:h-72 rounded-2xl overflow-hidden border-2 border-emerald-500/50 shadow-inner bg-slate-100 z-0">
+      <div className={`relative w-full h-64 sm:h-72 rounded-2xl overflow-hidden border-2 shadow-inner bg-slate-100 z-0 ${
+        isPinConfirmed ? 'border-emerald-600' : 'border-emerald-500/50'
+      }`}>
         <div ref={mapContainerRef} className="w-full h-full" />
-        
-        {/* Subtle Map helper overlay on bottom right */}
+
         <div className="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur-xs text-white px-2.5 py-1 rounded-lg text-[10px] font-medium z-[1000] pointer-events-none flex items-center gap-1.5 shadow-md">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-          <span>Click anywhere or drag red pin to set location</span>
+          <span className={`w-2 h-2 rounded-full ${isPinConfirmed ? 'bg-emerald-400' : 'bg-amber-400 animate-pulse'}`} />
+          <span>
+            {isPinConfirmed
+              ? 'Location locked — tap Unlock Pin to adjust'
+              : 'Click map or drag red pin, then click Save & Lock Pin'}
+          </span>
         </div>
       </div>
 
@@ -252,7 +296,6 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
           </span>
         </div>
 
-        {/* Live Google Maps Link */}
         <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
           <input
             type="text"
@@ -281,3 +324,4 @@ export const MapLocationPicker: React.FC<MapLocationPickerProps> = ({
     </div>
   );
 };
+

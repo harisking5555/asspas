@@ -14,7 +14,7 @@ import {
   TrendingUp,
   ShoppingBag
 } from 'lucide-react';
-import { PlatformAd, Shop } from '../types';
+import { PlatformAd, Shop, FeaturedBrandProduct } from '../types';
 
 interface HomepageGalleryProps {
   ads: PlatformAd[];
@@ -23,6 +23,9 @@ interface HomepageGalleryProps {
   activeProvince?: string;
   onSelectShop: (shopId: string) => void;
   onOpenChat: (phone: string, title: string) => void;
+  featuredBrandName?: string;
+  featuredBrandActive?: boolean;
+  featuredProducts?: FeaturedBrandProduct[];
 }
 
 export const HomepageGallery: React.FC<HomepageGalleryProps> = ({
@@ -32,6 +35,9 @@ export const HomepageGallery: React.FC<HomepageGalleryProps> = ({
   activeProvince,
   onSelectShop,
   onOpenChat,
+  featuredBrandName = 'Elegancia Mineral Water',
+  featuredBrandActive = true,
+  featuredProducts = [],
 }) => {
   const [adIndex, setAdIndex] = useState(0);
 
@@ -45,9 +51,9 @@ export const HomepageGallery: React.FC<HomepageGalleryProps> = ({
 
   const featuredAd = matchingAds.length > 0 ? matchingAds[adIndex % matchingAds.length] : null;
 
-  // Top shops (highest rating & verified)
-  const topShops = [...shops]
-    .filter((s) => s.city.toLowerCase() === activeCity.toLowerCase() || !activeCity)
+  // Top shops (highest rating & verified) in city or overall if city has none
+  const cityMatched = shops.filter((s) => s.city.toLowerCase() === activeCity.toLowerCase());
+  const topShops = [...(cityMatched.length > 0 ? cityMatched : shops)]
     .sort((a, b) => (b.rating || 0) - (a.rating || 0))
     .slice(0, 4);
 
@@ -60,6 +66,8 @@ export const HomepageGallery: React.FC<HomepageGalleryProps> = ({
       });
     }
   });
+
+  const brandSpotlightProduct = featuredProducts[0];
 
   return (
     <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-4 space-y-8 font-['Poppins']">
@@ -77,41 +85,48 @@ export const HomepageGallery: React.FC<HomepageGalleryProps> = ({
                   Community Picks
                 </span>
               </h3>
-              <p className="text-[11px] text-slate-500">Popular items, fresh arrivals & official Elegancia Mineral Water</p>
+              <p className="text-[11px] text-slate-500">Popular items, fresh arrivals & {featuredBrandName}</p>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {/* Always highlight Elegancia Mineral Water first */}
-          <div className="bg-gradient-to-b from-cyan-900 to-teal-950 text-white rounded-2xl p-3 flex flex-col justify-between shadow-xs border border-cyan-800/40 relative group overflow-hidden">
-            <div>
-              <div className="h-24 sm:h-28 rounded-xl bg-cyan-950/60 overflow-hidden mb-2 relative">
-                <img
-                  src="/src/assets/images/product_elegancia_water_1793110437317.jpg"
-                  alt="Elegancia Mineral Water"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-                <span className="absolute top-1.5 left-1.5 bg-cyan-500 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded">
-                  Elegancia
-                </span>
+          {featuredBrandActive && (
+            <div className="bg-gradient-to-b from-cyan-900 to-teal-950 text-white rounded-2xl p-3 flex flex-col justify-between shadow-xs border border-cyan-800/40 relative group overflow-hidden">
+              <div>
+                <div className="h-24 sm:h-28 rounded-xl bg-cyan-950/60 overflow-hidden mb-2 relative">
+                  <img
+                    src={brandSpotlightProduct?.imageUrl || '/images/product_elegancia_water_1793110437317.jpg'}
+                    alt={featuredBrandName}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                  />
+                  <span className="absolute top-1.5 left-1.5 bg-cyan-500 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded">
+                    Official Brand
+                  </span>
+                </div>
+                <h4 className="font-bold text-xs text-white line-clamp-1">
+                  {brandSpotlightProduct?.name || `${featuredBrandName}`}
+                </h4>
+                <p className="text-[10px] text-cyan-200 mt-0.5 line-clamp-1">
+                  {brandSpotlightProduct?.size || 'Certified pure hydration'}
+                </p>
               </div>
-              <h4 className="font-bold text-xs text-white line-clamp-1">Elegancia 19L & Bottled</h4>
-              <p className="text-[10px] text-cyan-200 mt-0.5">Certified pure hydration</p>
+              <div className="pt-2 flex items-center justify-between border-t border-cyan-800/60 mt-2">
+                <span className="font-black text-xs text-cyan-300">
+                  {brandSpotlightProduct?.price || 'Rs. 180+'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onOpenChat('923085599766', featuredBrandName)}
+                  className="px-2 py-1 bg-cyan-400 hover:bg-cyan-300 text-slate-950 rounded-lg text-[10px] font-black cursor-pointer shadow-xs"
+                >
+                  Order
+                </button>
+              </div>
             </div>
-            <div className="pt-2 flex items-center justify-between border-t border-cyan-800/60 mt-2">
-              <span className="font-black text-xs text-cyan-300">Rs. 220+</span>
-              <button
-                type="button"
-                onClick={() => onOpenChat('923085599766', 'Elegancia Mineral Water')}
-                className="px-2 py-1 bg-cyan-400 hover:bg-cyan-300 text-slate-950 rounded-lg text-[10px] font-black cursor-pointer shadow-xs"
-              >
-                Order
-              </button>
-            </div>
-          </div>
+          )}
 
-          {topProducts.slice(0, 5).map(({ shop, item }) => (
+          {topProducts.slice(0, featuredBrandActive ? 5 : 6).map(({ shop, item }) => (
             <div
               key={`${shop.id}-${item.id}`}
               className="bg-white rounded-2xl p-3 flex flex-col justify-between shadow-xs border border-slate-200 hover:border-emerald-300 transition-all group"
@@ -239,7 +254,7 @@ export const HomepageGallery: React.FC<HomepageGalleryProps> = ({
               {featuredAd.mediaType === 'video' ? (
                 <video
                   src={featuredAd.mediaUrl}
-                  poster="/src/assets/images/product_elegancia_water_1793110437317.jpg"
+                  poster="/images/product_elegancia_water_1793110437317.jpg"
                   controls
                   className="w-full h-full object-cover"
                 />

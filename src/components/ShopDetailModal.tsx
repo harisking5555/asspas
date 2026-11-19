@@ -392,9 +392,13 @@ export const ShopDetailModal: React.FC<ShopDetailModalProps> = ({
               <span>Call ({primaryOrderPhone})</span>
             </a>
             <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                `${shop.name} ${shop.address} ${shop.city}`
-              )}`}
+              href={
+                shop.coords?.lat && shop.coords?.lng
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${shop.coords.lat},${shop.coords.lng}`
+                  : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                      `${shop.name} ${shop.address} ${shop.city}`
+                    )}`
+              }
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 py-2.5 px-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 text-xs font-bold rounded-xl border border-emerald-300 transition-all"

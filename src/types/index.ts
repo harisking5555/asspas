@@ -59,6 +59,11 @@ export interface Shop {
   area: string;
   city: string;
   province?: string;
+  unionCouncil?: string;
+  marketOrBazar?: string;
+  streetOrPlaza?: string;
+  openAddress?: string;
+  viewsCount?: number;
   isOpen: boolean;
   openingHours: string;
   phone: string;
@@ -130,6 +135,9 @@ export interface UserProfile {
   role: 'user' | 'admin';
   status?: 'active' | 'suspended';
   lastActive?: string;
+  lastLogin?: string;
+  onlineMinutes?: number;
+  shopsVisited?: number;
   points: number;
   referralCode: string;
   referredBy?: string | null;
@@ -225,18 +233,38 @@ export interface PlatformAd {
   order?: number;
 }
 
+export interface CustomRegionCity {
+  province: string;
+  city: string;
+  unionCouncils?: string[];
+  markets?: string[];
+}
+
+export interface FeaturedBrandProduct {
+  id: string;
+  name: string;
+  size: string;
+  price: string;
+  description: string;
+  imageUrl?: string;
+}
+
 export interface AdminSettings {
   followerThresholds: FollowerThreshold[];
   registrationRewardPoints: number;
   firstShopRewardPoints: number;
   maxDirectReferrals: number;
   maintenanceMode: boolean;
+  requireShopApproval?: boolean;
+  heroMarketImage?: string;
   // Admin controls for shopkeeper post limits & images
   maxShopImagesAllowed?: number; // e.g. 5, 10, or 50
   shopkeeperCanPost?: boolean;
   dailyPostLimit?: number; // 1, 2, 5 etc
   featuredBrandName?: string; // Default 'Elegancia Mineral Water'
   featuredBrandActive?: boolean;
+  featuredProducts?: FeaturedBrandProduct[];
+  customRegions?: CustomRegionCity[];
   adsGallery?: PlatformAd[];
 }
 

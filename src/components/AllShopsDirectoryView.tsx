@@ -34,15 +34,25 @@ export const AllShopsDirectoryView: React.FC<AllShopsDirectoryViewProps> = ({
 
   const categories = [
     'All',
-    'Grocery & Daily Needs',
-    'Fashion & Clothing',
-    'Electronics & Mobiles',
-    'Home & Living',
-    'Pharmacy & Health',
-    'Books & Stationery',
-    'Beauty & Personal Care',
-    'Sports & Toys',
-    'Food & Restaurants',
+    ...Array.from(
+      new Set([
+        'Automotive & Repairs',
+        'Beauty & Personal Care',
+        'Books & Stationery',
+        'Electronics & Mobiles',
+        'Fashion & Clothing',
+        'Food & Restaurants',
+        'Grocery & Daily Needs',
+        'Home & Living',
+        'Home Maintenance & Repair',
+        'Mineral Water & Beverages',
+        'Pharmacy & Health',
+        'Professional Services',
+        'Sports & Toys',
+        'Tailoring & Boutiques',
+        ...shops.map((s) => s.category).filter(Boolean),
+      ])
+    ).sort((a, b) => a.localeCompare(b)),
   ];
 
   const filtered = shops.filter((s) => {
@@ -50,11 +60,29 @@ export const AllShopsDirectoryView: React.FC<AllShopsDirectoryViewProps> = ({
     if (onlyElegancia && !s.hasEleganciaWater) return false;
     if (onlyOpen && !s.isOpen) return false;
     if (search.trim()) {
-      const q = search.toLowerCase();
-      const matchName = s.name.toLowerCase().includes(q);
-      const matchArea = s.area.toLowerCase().includes(q);
-      const matchTags = s.tags.some((t) => t.toLowerCase().includes(q));
-      if (!matchName && !matchArea && !matchTags) return false;
+      const words = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
+      const haystack = [
+        s.name,
+        s.category,
+        s.subCategory,
+        s.shopType,
+        s.area,
+        s.city,
+        s.province,
+        s.unionCouncil,
+        s.marketOrBazar,
+        s.address,
+        s.openAddress,
+        s.description,
+        ...(s.tags || []),
+        ...(s.catalog || []).map((c) => `${c.name} ${c.description || ''}`),
+        s.hasEleganciaWater ? 'elegancia mineral water bottle 19l' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      if (!words.every((w) => haystack.includes(w))) return false;
     }
     return true;
   });

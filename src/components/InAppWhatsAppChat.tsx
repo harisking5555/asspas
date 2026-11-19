@@ -69,18 +69,17 @@ export const InAppWhatsAppChat: React.FC<InAppWhatsAppChatProps> = ({
         text: initialMessage,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       });
-      // Simulate shopkeeper auto-reply for quick reassurance
       setTimeout(() => {
         setMessages((prev) => [
           ...prev,
           {
             id: `msg-reply-${Date.now()}`,
             sender: 'shop',
-            text: `Thank you for reaching out! We are currently available at ${shop.address}, ${shop.city}. A store representative is reviewing your message and will reply shortly.`,
+            text: `Thanks to visit asspas.store, drop here your query about any complaint, suggestion, feedback etc. You will be replied soon.`,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           },
         ]);
-      }, 1000);
+      }, 900);
     }
     setMessages(welcomeMsgs);
     localStorage.setItem(`chat_history_${shop.id}`, JSON.stringify(welcomeMsgs));

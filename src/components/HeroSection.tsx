@@ -11,6 +11,7 @@ interface HeroSectionProps {
   onSelectQuickTag: (tag: string) => void;
   onOpenEleganciaView: () => void;
   totalStoresCount: number;
+  heroImageUrl?: string;
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({
@@ -23,17 +24,19 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
   onSelectQuickTag,
   onOpenEleganciaView,
   totalStoresCount,
+  heroImageUrl,
 }) => {
+  const resolvedHeroImg = heroImageUrl?.trim() || '/images/shopnear_hero_street_1793110435367.jpg';
+
   return (
     <div className="relative bg-slate-950 text-white py-8 sm:py-10 border-b border-emerald-800/40 w-full overflow-hidden">
-      {/* Background Street Image (Clearly visible with soft ambient tint) */}
+      {/* Background Street Image */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         <img
-          src="/src/assets/images/shopnear_hero_street_1793110435367.jpg"
+          src={resolvedHeroImg}
           alt="Local Neighborhood Street"
           className="w-full h-full object-cover scale-105 opacity-45"
         />
-        {/* Soft gradient overlay for text readability without washing out the photo */}
         <div className="absolute inset-0 bg-gradient-to-r from-slate-950/90 via-emerald-950/75 to-slate-950/85" />
       </div>
 
@@ -56,7 +59,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
 
           {/* Search Box Container */}
           <div className="mt-5 bg-white p-1.5 sm:p-2 rounded-xl sm:rounded-2xl shadow-xl border border-slate-200 text-slate-800 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            {/* City Selector Button (Clean icon & city name without redundant labels) */}
             <button
               type="button"
               onClick={onOpenCityModal}
@@ -69,7 +71,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               </span>
             </button>
 
-            {/* Keyword Search Input */}
             <div className="flex-1 flex items-center gap-2 px-2.5 py-1 min-w-0">
               <Search className="w-4 h-4 text-slate-400 shrink-0" strokeWidth={1.75} />
               <input
@@ -77,7 +78,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                placeholder="Search shops, products, or Elegancia Water..."
+                placeholder="Search shops, products, markets, or Elegancia Water..."
                 className="w-full bg-transparent text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 outline-none font-medium"
               />
               {searchQuery && (
@@ -92,7 +93,6 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               )}
             </div>
 
-            {/* GPS Locate Button */}
             <button
               type="button"
               onClick={onDetectLocation}
@@ -102,9 +102,12 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
               <Navigation className={`w-4 h-4 ${isLocating ? 'animate-spin' : ''}`} strokeWidth={1.75} />
             </button>
 
-            {/* Search Submit Button */}
             <button
               type="button"
+              onClick={() => {
+                const el = document.getElementById('shops-list-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
               className="bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 sm:py-2.5 rounded-lg sm:rounded-xl font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-1.5 shrink-0 shadow-xs cursor-pointer"
             >
               <Search className="w-3.5 h-3.5" strokeWidth={1.75} />
@@ -149,39 +152,39 @@ export const HeroSection: React.FC<HeroSectionProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Visual Card - Clickable Quick Market Radar Filter */}
+        {/* Right Column: Visual Card - Click to Change City & Market */}
         <div className="hidden lg:block w-full lg:w-[380px] shrink-0">
           <button
             type="button"
             onClick={onOpenCityModal}
             className="w-full text-left relative rounded-2xl overflow-hidden border border-emerald-500/30 bg-slate-900 shadow-xl group cursor-pointer block transition-transform hover:scale-[1.02]"
-            title={`Browse ${activeCity} regional businesses & markets`}
+            title={`Click to Change City & Market (${activeCity})`}
           >
-            <div className="absolute top-3 left-3 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-emerald-500/30 text-[10px] text-emerald-300 font-bold flex items-center gap-1.5 shadow-sm">
+            <div className="absolute top-3 left-3 z-10 bg-slate-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-emerald-500/30 text-[10px] text-emerald-300 font-bold flex items-center gap-1.5 shadow-sm">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>City Hub & Market Selector</span>
+              <span>Regional Market Selector</span>
             </div>
             <img
-              src="/src/assets/images/shopnear_hero_street_1793110435367.jpg"
+              src={resolvedHeroImg}
               alt={`${activeCity} Market`}
               className="w-full h-56 object-cover group-hover:scale-105 transition-transform duration-300"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/50 to-transparent flex flex-col justify-end p-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <div>
                   <span className="text-[10px] font-bold text-emerald-300 tracking-wider uppercase flex items-center gap-1">
                     <MapPin className="w-3 h-3 text-emerald-400" />
-                    <span>{activeCity} Regional Market Hub</span>
+                    <span>{activeCity} Regional Market</span>
                   </span>
                   <div className="text-white font-bold text-sm mt-0.5">
                     {totalStoresCount} Verified Stores Active
                   </div>
                   <div className="text-[10px] text-slate-300 mt-0.5">
-                    Click to switch city or filter by local bazar
+                    Click to Change City & Market
                   </div>
                 </div>
                 <div className="bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-xl shadow-xs shrink-0 flex items-center gap-1">
-                  <span>Switch City</span>
+                  <span>Change City</span>
                 </div>
               </div>
             </div>

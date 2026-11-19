@@ -3,7 +3,7 @@ import { Filter, RotateCcw, Droplet } from 'lucide-react';
 import { ShopCategory, ShopType } from '../types';
 
 interface FilterSidebarProps {
-  category: ShopCategory;
+  category: ShopCategory | string;
   onCategoryChange: (c: ShopCategory) => void;
   shopType: ShopType;
   onShopTypeChange: (t: ShopType) => void;
@@ -18,6 +18,13 @@ interface FilterSidebarProps {
   selectedArea?: string;
   onAreaChange?: (area: string) => void;
   availableAreas?: string[];
+  availableCategories?: string[];
+  selectedProvince?: string;
+  onProvinceChange?: (province: string) => void;
+  provinces?: string[];
+  activeCity?: string;
+  onCityChange?: (city: string) => void;
+  cities?: string[];
 }
 
 export const FilterSidebar: React.FC<FilterSidebarProps> = ({
@@ -36,24 +43,46 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
   selectedArea,
   onAreaChange,
   availableAreas = [],
+  availableCategories,
+  selectedProvince,
+  onProvinceChange,
+  provinces = [],
+  activeCity,
+  onCityChange,
+  cities = [],
 }) => {
-  // Alphabetically sorted categories per requirement
-  const categories: ShopCategory[] = [
+  const defaultCategories: string[] = [
     'All Categories',
+    'Agriculture, Seeds & Livestock',
+    'Arts, Gifts & Handicrafts',
     'Automotive & Repairs',
+    'Bakery, Sweets & Confectionery',
     'Beauty & Personal Care',
     'Books & Stationery',
+    'Building Materials & Hardware',
+    'Computers, IT & Software',
+    'Education, Academies & Tuition',
     'Electronics & Mobiles',
     'Fashion & Clothing',
     'Food & Restaurants',
+    'Furniture & Interiors',
     'Grocery & Daily Needs',
     'Home & Living',
     'Home Maintenance & Repair',
+    'Hospitals, Clinics & Labs',
+    'Jewelry, Gold & Watches',
+    'Mineral Water & Beverages',
     'Pharmacy & Health',
     'Professional Services',
+    'Solar Energy & UPS Systems',
     'Sports & Toys',
     'Tailoring & Boutiques',
+    'Wholesale, Distributors & Mandi',
   ];
+
+  const categoryOptions = availableCategories && availableCategories.length > 0
+    ? ['All Categories', ...availableCategories.filter((c) => c !== 'All Categories').sort((a, b) => a.localeCompare(b))]
+    : defaultCategories;
 
   const shopTypes: ShopType[] = [
     'All Shops',
@@ -122,17 +151,75 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         </label>
       </div>
 
+      {/* Province Selector */}
+      {provinces.length > 0 && onProvinceChange && (
+        <div>
+          <label className="block text-xs font-bold text-slate-800 mb-1.5">
+            Province (صوبہ)
+          </label>
+          <select
+            value={selectedProvince || 'All Provinces'}
+            onChange={(e) => onProvinceChange(e.target.value)}
+            className="w-full text-xs bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-2.5 font-medium outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+          >
+            <option value="All Provinces">All Provinces</option>
+            {provinces.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* City Selector */}
+      {cities.length > 0 && onCityChange && (
+        <div>
+          <label className="block text-xs font-bold text-slate-800 mb-1.5">
+            City (شہر)
+          </label>
+          <select
+            value={activeCity || 'All Cities'}
+            onChange={(e) => onCityChange(e.target.value)}
+            className="w-full text-xs bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-2.5 font-medium outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
+          >
+            <option value="All Cities">All Cities in Pakistan</option>
+            {cities.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Area / Market / Bazaar Filter */}
+      {availableAreas && availableAreas.length > 0 && onAreaChange && (
+        <div>
+          <label className="block text-xs font-bold text-slate-800 mb-1.5">
+            Area / Market / Bazaar
+          </label>
+          <select
+            value={selectedArea || 'All Areas'}
+            onChange={(e) => onAreaChange(e.target.value)}
+            className="w-full text-xs bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-2.5 font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all cursor-pointer"
+          >
+            {availableAreas.map((a) => (
+              <option key={a} value={a}>
+                {a === 'All Areas' ? 'All Areas & Bazaars' : a}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {/* Category Dropdown */}
       <div>
-        <label className="block text-xs font-bold text-slate-800 mb-2">
-          Category
+        <label className="block text-xs font-bold text-slate-800 mb-1.5">
+          Category (A–Z)
         </label>
         <select
           value={category}
           onChange={(e) => onCategoryChange(e.target.value as ShopCategory)}
           className="w-full text-xs bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-2.5 font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all cursor-pointer"
         >
-          {categories.map((c) => (
+          {categoryOptions.map((c) => (
             <option key={c} value={c}>
               {c}
             </option>
@@ -140,31 +227,10 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
         </select>
       </div>
 
-      {/* Area / Market / Bazaar Filter */}
-      {availableAreas && availableAreas.length > 0 && (
-        <div>
-          <label className="block text-xs font-bold text-slate-800 mb-2">
-            Area / Market / Bazaar
-          </label>
-          <select
-            value={selectedArea || 'All Areas'}
-            onChange={(e) => onAreaChange && onAreaChange(e.target.value)}
-            className="w-full text-xs bg-slate-50 border border-slate-200 text-slate-800 rounded-lg p-2.5 font-medium outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all cursor-pointer"
-          >
-            <option value="All Areas">All Areas & Bazaars</option>
-            {[...availableAreas].sort().map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
       {/* Shop Type Selection */}
       <div>
         <label className="block text-xs font-bold text-slate-800 mb-2">
-          Shop Type
+          Business Nature
         </label>
         <div className="space-y-2">
           {shopTypes.map((type) => (

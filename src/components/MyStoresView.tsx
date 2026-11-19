@@ -72,6 +72,7 @@ export const MyStoresView: React.FC<MyStoresViewProps> = ({
   const [newProdDesc, setNewProdDesc] = useState('');
   const [newProdInStock, setNewProdInStock] = useState(true);
   const [uploadingProdImage, setUploadingProdImage] = useState(false);
+  const [prodUploadError, setProdUploadError] = useState<string | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
   const [copiedShopLink, setCopiedShopLink] = useState<string | null>(null);
 
@@ -139,19 +140,21 @@ export const MyStoresView: React.FC<MyStoresViewProps> = ({
     setNewProdImage('');
     setNewProdDesc('');
     setNewProdInStock(true);
+    setProdUploadError(null);
   };
 
   const handleProductImageUpload = async (file: File) => {
     setUploadingProdImage(true);
+    setProdUploadError(null);
     try {
       const res = await uploadImageToImgBB(file);
       if (res.success && res.url) {
         setNewProdImage(res.url);
       } else {
-        alert(res.error || 'Failed to upload image.');
+        setProdUploadError(res.error || 'Failed to upload image. You can paste an image URL instead.');
       }
     } catch {
-      alert('Could not upload image. Please check connection or enter image URL.');
+      setProdUploadError('Could not upload image. Please check connection or enter image URL.');
     } finally {
       setUploadingProdImage(false);
     }
@@ -742,6 +745,12 @@ export const MyStoresView: React.FC<MyStoresViewProps> = ({
                     />
                   </label>
                 </div>
+                {prodUploadError && (
+                  <p className="text-[11px] font-semibold text-rose-600 mt-1 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{prodUploadError}</span>
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-between gap-3">

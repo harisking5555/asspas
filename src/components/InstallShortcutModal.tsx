@@ -51,8 +51,14 @@ export const InstallShortcutModal: React.FC<InstallShortcutModalProps> = ({
             className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-98"
           >
             <Download className="w-4 h-4" />
-            <span>{isInstallable ? 'Install App Shortcut on Device' : 'Add Shortcut / Install App'}</span>
+            <span>{isInstallable ? 'Install asspas.store App Shortcut Now' : 'Follow Steps Below to Add Shortcut'}</span>
           </button>
+
+          {!isInstallable && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-900 font-medium">
+              Tip: On Chrome/Edge desktop click the <strong>Install icon (⭳)</strong> inside the address bar, or open browser menu (⋮) → <strong>Add to Home screen / Install app</strong>. Works identically to Free4talk desktop shortcut!
+            </div>
+          )}
 
           {/* Device Specific Guides */}
           <div className="space-y-3 pt-2">

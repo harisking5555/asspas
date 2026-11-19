@@ -1,40 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  User, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Star, 
-  Gift, 
-  Sparkles, 
-  Share2, 
-  Copy, 
-  Check, 
-  QrCode, 
-  Store, 
-  Heart, 
-  Clock, 
-  ShieldCheck, 
-  Award, 
-  TrendingUp, 
-  Users, 
-  ChevronRight, 
-  ExternalLink, 
-  HelpCircle, 
-  MessageSquare, 
-  Download, 
-  Camera, 
-  Edit3, 
-  Save, 
-  AlertCircle,
+import React, { useState, useEffect, useMemo } from 'react';
+import {
+  User,
+  MapPin,
+  Phone,
+  Mail,
+  Star,
+  Gift,
+  Share2,
+  Copy,
+  Check,
+  QrCode,
+  Store,
+  Heart,
+  ShieldCheck,
+  Users,
+  MessageSquare,
+  Download,
+  Camera,
+  Edit3,
+  Save,
   PlusCircle,
   CheckCircle2,
-  Package
+  LogOut,
+  Package,
+  Trash2,
+  Link2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { UserProfile, Shop, SupportTicket, PointTransaction, ReferralNode } from '../types';
+import { UserProfile, Shop, SupportTicket, PointTransaction, ReferralNode, CatalogItem } from '../types';
 import { useAuth } from '../context/AuthContext';
-import { getReferralLink, generateQrCodeDataUrl, fetchUserReferralTree, fetchUserPointsLedger, calculateStarLevel } from '../services/referralService';
+import {
+  getReferralLink,
+  generateQrCodeDataUrl,
+  fetchUserReferralTree,
+  fetchUserPointsLedger,
+  calculateStarLevel,
+} from '../services/referralService';
 import { uploadImageToImgBB } from '../services/imageUploadService';
 import { fetchUserSupportTickets, createSupportTicket } from '../services/supportService';
 import { PAKISTAN_REGIONS } from '../data/pakistanRegions';
@@ -46,6 +47,9 @@ interface UserProfileViewProps {
   onSelectShop: (shop: Shop) => void;
   onOpenShopDetails: (shop: Shop) => void;
   onBackToHome: () => void;
+  onOpenAdmin?: () => void;
+  onToggleFavoriteShop?: (shopId: string) => void;
+  onToggleFavoriteProduct?: (productId: string) => void;
 }
 
 export const UserProfileView: React.FC<UserProfileViewProps> = ({
@@ -55,15 +59,16 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
   onSelectShop,
   onOpenShopDetails,
   onBackToHome,
+  onOpenAdmin,
+  onToggleFavoriteShop,
+  onToggleFavoriteProduct,
 }) => {
-  const { updateUserProfile, logout, isAdmin } = useAuth();
-  
-  // Navigation tabs inside full-page profile
+  const { updateUserProfile, attachSponsorReferralCode, logout, isAdmin } = useAuth();
+
   const [activeProfileTab, setActiveProfileTab] = useState<
     'overview' | 'referrals' | 'points' | 'shops' | 'favorites' | 'support'
   >('overview');
 
-  // Edit profile form state
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState(user.name || '');
   const [editPhone, setEditPhone] = useState(user.phone || '');
@@ -75,15 +80,19 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
-  // Referral & QR Code state
+  // Late sponsor binding state
+  const [sponsorCodeInput, setSponsorCodeInput] = useState('');
+  const [bindingSponsor, setBindingSponsor] = useState(false);
+  const [sponsorFeedback, setSponsorFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
+
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+  const [igToast, setIgToast] = useState(false);
   const [referralTree, setReferralTree] = useState<ReferralNode | null>(null);
   const [pointsLedger, setPointsLedger] = useState<PointTransaction[]>([]);
   const [loadingLedger, setLoadingLedger] = useState(false);
 
-  // Support / Complaint Ticket Form state
   const [userTickets, setUserTickets] = useState<SupportTicket[]>([]);
   const [ticketType, setTicketType] = useState<'complaint' | 'feedback' | 'suggestion'>('feedback');
   const [ticketSubject, setTicketSubject] = useState('');
@@ -93,7 +102,15 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
 
   const referralUrl = getReferralLink(user.referralCode);
 
-  // Load QR code and Referral Tree
+  useEffect(() => {
+    setEditName(user.name || '');
+    setEditPhone(user.phone || '');
+    setEditAddress(user.address || '');
+    setEditProvince(user.province || 'Khyber Pakhtunkhwa (KP)');
+    setEditCity(user.city || 'Peshawar');
+    setEditArea(user.area || '');
+  }, [user]);
+
   useEffect(() => {
     generateQrCodeDataUrl(referralUrl).then((url) => setQrCodeDataUrl(url));
     if (user.id) {
@@ -105,9 +122,8 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
       });
       fetchUserSupportTickets(user.id).then((t) => setUserTickets(t));
     }
-  }, [user.id, referralUrl, user.referralCode]);
+  }, [user.id, referralUrl, user.referralCode, user.points, user.referredCount]);
 
-  // Compute profile completion percentage
   const calculateProfileCompletion = () => {
     let score = 0;
     if (user.name) score += 20;
@@ -120,11 +136,14 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
   };
 
   const completionPercent = calculateProfileCompletion();
-
-  // Star progression calculation
   const directCount = user.referredCount || 0;
-  const currentStar = user.starLevel || calculateStarLevel(directCount, []);
-  const neededForNextStar = 3 - (directCount % 3);
+  const currentStar =
+    user.starLevel ??
+    calculateStarLevel(
+      referralTree?.children.length || directCount,
+      (referralTree?.children || []).map((c) => c.starLevel || 0)
+    );
+  const neededForNextStar = directCount < 3 ? 3 - directCount : 0;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(referralUrl);
@@ -163,11 +182,22 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
       setIsEditing(false);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
-      console.error(err);
     } finally {
       setSavingProfile(false);
     }
+  };
+
+  const handleAttachSponsor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!sponsorCodeInput.trim()) return;
+    setBindingSponsor(true);
+    const res = await attachSponsorReferralCode(sponsorCodeInput);
+    setSponsorFeedback({ ok: res.success, msg: res.message });
+    if (res.success) {
+      setSponsorCodeInput('');
+      fetchUserReferralTree(user.id, user.referralCode).then(setReferralTree);
+    }
+    setBindingSponsor(false);
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,11 +209,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
         if (res.success && res.url) {
           await updateUserProfile({ photoURL: res.url });
           try {
-            confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
+            confetti({ particleCount: 40, spread: 50, origin: { y: 0.7 } });
           } catch {}
         }
-      } catch (err) {
-        console.warn('Photo upload failed:', err);
       } finally {
         setUploadingPhoto(false);
       }
@@ -205,29 +233,46 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
         message: ticketMessage.trim(),
       });
       if (res.success) {
-        setTicketSuccess('Your message was successfully received by the asspas.store support team. You will receive an update shortly.');
+        setTicketSuccess(
+          'Your message was received by asspas.store support. Track administrative replies in your ticket list.'
+        );
         setTicketSubject('');
         setTicketMessage('');
         const freshTickets = await fetchUserSupportTickets(user.id);
         setUserTickets(freshTickets);
         setTimeout(() => setTicketSuccess(null), 5000);
       }
-    } catch (err) {
-      console.error(err);
     } finally {
       setSubmittingTicket(false);
     }
   };
 
-  const userShops = shops.filter((s) => s.ownerId === user.id || s.ownerName === user.name);
+  const userShops = shops.filter(
+    (s) => s.ownerId === user.id || (user.email && s.email && s.email.toLowerCase() === user.email.toLowerCase())
+  );
   const favoriteShops = shops.filter((s) => (user.favorites || []).includes(s.id));
+
+  const favoriteProductEntries = useMemo(() => {
+    const ids = user.favoriteProducts || [];
+    if (ids.length === 0) return [];
+    const results: { shop: Shop; item: CatalogItem }[] = [];
+    for (const s of shops) {
+      for (const item of s.catalog || []) {
+        if (ids.includes(item.id)) {
+          results.push({ shop: s, item });
+        }
+      }
+    }
+    return results;
+  }, [shops, user.favoriteProducts]);
+
+  const totalFavoritesCount = favoriteShops.length + favoriteProductEntries.length;
 
   return (
     <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 space-y-6 font-['Poppins']">
-      {/* Top Breadcrumb & Profile Welcome Banner */}
+      {/* Top Profile Banner with Clear Logout CTA */}
       <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white rounded-3xl p-5 sm:p-8 shadow-xl border border-emerald-800/40 relative overflow-hidden">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          {/* Left Avatar & Core Info */}
           <div className="flex items-start sm:items-center gap-4 sm:gap-6">
             <div className="relative group shrink-0">
               {user.photoURL ? (
@@ -241,18 +286,13 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                   {user.name?.charAt(0) || 'U'}
                 </div>
               )}
-              <label 
+              <label
                 title="Update Profile Picture"
                 className="absolute inset-0 bg-slate-950/70 rounded-2xl flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer text-white text-[11px] font-bold"
               >
                 <Camera className="w-5 h-5 mb-1" />
                 <span>{uploadingPhoto ? 'Uploading...' : 'Change'}</span>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePhotoUpload}
-                  className="hidden"
-                />
+                <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
               </label>
             </div>
 
@@ -263,10 +303,10 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 </h1>
                 <span className="inline-flex items-center gap-1 bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
                   <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                  Verified Account
+                  Verified Member
                 </span>
                 {isAdmin && (
-                  <span className="inline-flex items-center gap-1 bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-full shadow-xs">
+                  <span className="inline-flex items-center gap-1 bg-amber-500 text-slate-950 font-black text-[10px] px-2.5 py-0.5 rounded-full">
                     <ShieldCheck className="w-3.5 h-3.5" />
                     Super Admin
                   </span>
@@ -290,7 +330,6 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 </span>
               </div>
 
-              {/* Profile Completion Bar */}
               <div className="pt-2 max-w-xs">
                 <div className="flex items-center justify-between text-[10px] text-emerald-200 mb-1">
                   <span>Profile Completion</span>
@@ -306,40 +345,57 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
             </div>
           </div>
 
-          {/* Right Highlights: Points, Star Level & Quick Action */}
-          <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
-            {/* PTS Card */}
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3.5 min-w-[130px] text-center shadow-xs">
+          <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 min-w-[115px] text-center">
               <span className="text-[10px] uppercase tracking-wider text-emerald-300 font-bold block">
-                Total Balance
+                Points Balance
               </span>
-              <div className="text-2xl font-black text-white tabular-nums flex items-center justify-center gap-1">
+              <div className="text-xl sm:text-2xl font-black text-white tabular-nums flex items-center justify-center gap-1">
                 <span>{user.points || 0}</span>
                 <span className="text-xs text-emerald-400 font-bold">PTS</span>
               </div>
-              <span className="text-[9px] text-emerald-200/80 block mt-0.5" title="PTS stands for Points - Loyalty Points earned through referrals & business registrations.">
-                Points (PTS) Active
-              </span>
+              <span className="text-[9px] text-emerald-200/80 block">1 PTS = 1 Point</span>
             </div>
 
-            {/* Star Matrix Card */}
-            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3.5 min-w-[130px] text-center shadow-xs">
+            <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 min-w-[115px] text-center">
               <span className="text-[10px] uppercase tracking-wider text-amber-300 font-bold block">
-                Community Rank
+                Matrix Rank
               </span>
-              <div className="text-2xl font-black text-amber-300 flex items-center justify-center gap-1">
+              <div className="text-xl sm:text-2xl font-black text-amber-300 flex items-center justify-center gap-1">
                 <span>★ {currentStar}</span>
                 <span className="text-xs text-amber-200">Star</span>
               </div>
-              <span className="text-[9px] text-emerald-200/80 block mt-0.5">
-                {directCount} Direct Invites
-              </span>
+              <span className="text-[9px] text-emerald-200/80 block">{directCount} Direct Invites</span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {isAdmin && onOpenAdmin && (
+                <button
+                  type="button"
+                  onClick={onOpenAdmin}
+                  className="px-3.5 py-2 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Admin Panel</span>
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={async () => {
+                  await logout();
+                  onBackToHome();
+                }}
+                className="px-3.5 py-2 bg-rose-600/90 hover:bg-rose-600 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 cursor-pointer transition-colors shadow-xs"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Log Out</span>
+              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Profile Navigation Tabs */}
+      {/* Tabs */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-b border-slate-200 text-xs font-semibold">
         <button
           onClick={() => setActiveProfileTab('overview')}
@@ -350,7 +406,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
           }`}
         >
           <User className="w-4 h-4" />
-          <span>Personal Details & Edit</span>
+          <span>Personal Details &amp; Edit</span>
         </button>
 
         <button
@@ -362,7 +418,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
           }`}
         >
           <Share2 className="w-4 h-4" />
-          <span>Referral Link & 3x3 Star Matrix</span>
+          <span>Referral Link &amp; 3×3 Matrix</span>
         </button>
 
         <button
@@ -374,7 +430,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
           }`}
         >
           <Gift className="w-4 h-4" />
-          <span>Points Ledger (PTS Explained)</span>
+          <span>Points Ledger (PTS)</span>
         </button>
 
         <button
@@ -398,7 +454,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
           }`}
         >
           <Heart className="w-4 h-4" />
-          <span>Saved Favorites ({favoriteShops.length})</span>
+          <span>Favorites ({totalFavoritesCount})</span>
         </button>
 
         <button
@@ -410,18 +466,18 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
           }`}
         >
           <MessageSquare className="w-4 h-4" />
-          <span>Complaints & Suggestions ({userTickets.length})</span>
+          <span>Support ({userTickets.length})</span>
         </button>
       </div>
 
-      {/* TAB 1: OVERVIEW & PERSONAL INFORMATION */}
+      {/* TAB 1: OVERVIEW */}
       {activeProfileTab === 'overview' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-5">
             {saveSuccess && (
-              <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 text-xs font-semibold flex items-center gap-2 animate-in fade-in">
+              <div className="p-3 bg-emerald-50 border border-emerald-300 rounded-xl text-emerald-900 text-xs font-semibold flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>Profile details successfully updated and saved to database!</span>
+                <span>Profile details successfully updated!</span>
               </div>
             )}
 
@@ -429,12 +485,14 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div>
                   <h3 className="font-extrabold text-sm text-slate-900">Personal Information</h3>
-                  <p className="text-[11px] text-slate-500">Your registered contact and regional address details.</p>
+                  <p className="text-[11px] text-slate-500">
+                    Your registered contact details and residential area.
+                  </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setIsEditing(!isEditing)}
-                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
                   <span>{isEditing ? 'Cancel Edit' : 'Edit Profile'}</span>
@@ -444,60 +502,52 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
               {!isEditing ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block mb-0.5">
                       Full Name
                     </span>
-                    <span className="font-semibold text-slate-800 text-xs">{user.name || 'Not provided'}</span>
+                    <span className="font-semibold text-slate-800">{user.name || 'Not provided'}</span>
                   </div>
-
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block mb-0.5">
                       Email Address
                     </span>
-                    <span className="font-semibold text-slate-800 text-xs truncate">{user.email || 'Not provided'}</span>
+                    <span className="font-semibold text-slate-800 truncate">{user.email || 'Not provided'}</span>
                   </div>
-
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block mb-0.5">
                       Phone Number
                     </span>
-                    <span className="font-semibold text-slate-800 text-xs">{user.phone || 'Not provided'}</span>
+                    <span className="font-semibold text-slate-800">{user.phone || 'Not provided'}</span>
                   </div>
-
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block mb-0.5">
                       Province
                     </span>
-                    <span className="font-semibold text-slate-800 text-xs">{user.province || 'Khyber Pakhtunkhwa (KP)'}</span>
-                  </div>
-
-                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">
-                      City
+                    <span className="font-semibold text-slate-800">
+                      {user.province || 'Khyber Pakhtunkhwa (KP)'}
                     </span>
-                    <span className="font-semibold text-slate-800 text-xs">{user.city || 'Peshawar'}</span>
                   </div>
-
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">
-                      Area / Market / Sector
-                    </span>
-                    <span className="font-semibold text-slate-800 text-xs">{user.area || 'Not provided'}</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block mb-0.5">City</span>
+                    <span className="font-semibold text-slate-800">{user.city || 'Peshawar'}</span>
                   </div>
-
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block mb-0.5">
+                      Area / Bazar
+                    </span>
+                    <span className="font-semibold text-slate-800">{user.area || 'Not provided'}</span>
+                  </div>
                   <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 sm:col-span-2">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block mb-0.5">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block mb-0.5">
                       Street Address
                     </span>
-                    <span className="font-semibold text-slate-800 text-xs">{user.address || 'Not provided'}</span>
+                    <span className="font-semibold text-slate-800">{user.address || 'Not provided'}</span>
                   </div>
                 </div>
               ) : (
                 <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
                   <div>
-                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                      Full Name *
-                    </label>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">Full Name *</label>
                     <input
                       type="text"
                       required
@@ -506,7 +556,6 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
                     />
                   </div>
-
                   <div>
                     <label className="block text-[11px] font-semibold text-slate-700 mb-1">
                       Mobile Phone Number *
@@ -520,20 +569,15 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
                     />
                   </div>
-
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Province *
-                      </label>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Province *</label>
                       <select
                         value={editProvince}
                         onChange={(e) => {
                           setEditProvince(e.target.value);
                           const prov = PAKISTAN_REGIONS.find((p) => p.name === e.target.value);
-                          if (prov && prov.cities.length > 0) {
-                            setEditCity(prov.cities[0].name);
-                          }
+                          if (prov && prov.cities.length > 0) setEditCity(prov.cities[0].name);
                         }}
                         className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
                       >
@@ -544,11 +588,8 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                         ))}
                       </select>
                     </div>
-
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        City *
-                      </label>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">City *</label>
                       <select
                         value={editCity}
                         onChange={(e) => setEditCity(e.target.value)}
@@ -562,12 +603,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                       </select>
                     </div>
                   </div>
-
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Area / Sector
-                      </label>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Area / Sector</label>
                       <input
                         type="text"
                         placeholder="e.g. Saddar or Hayatabad"
@@ -576,11 +614,8 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                         className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-emerald-500 font-medium"
                       />
                     </div>
-
                     <div>
-                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                        Street Address
-                      </label>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">Street Address</label>
                       <input
                         type="text"
                         placeholder="e.g. House 4, Street 10"
@@ -590,15 +625,14 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                       />
                     </div>
                   </div>
-
                   <div className="flex items-center gap-2 pt-2">
                     <button
                       type="submit"
                       disabled={savingProfile}
-                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold flex items-center gap-1.5 cursor-pointer"
                     >
                       <Save className="w-3.5 h-3.5" />
-                      <span>{savingProfile ? 'Saving...' : 'Save Profile Changes'}</span>
+                      <span>{savingProfile ? 'Saving...' : 'Save Changes'}</span>
                     </button>
                     <button
                       type="button"
@@ -611,9 +645,48 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 </form>
               )}
             </div>
+
+            {/* Late Sponsor Attachment Card if user joined without a referral code */}
+            {!user.referredBy && (
+              <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-5 space-y-3">
+                <div className="flex items-center gap-2 text-amber-900 font-bold text-xs">
+                  <Link2 className="w-4 h-4 text-amber-700" />
+                  <span>Have a Friend&apos;s Referral Code or Invite Link? (+50 PTS)</span>
+                </div>
+                <p className="text-[11px] text-amber-800">
+                  If someone invited you to asspas.store, enter their code (e.g. <code>ASSPAS-12345</code>) or paste their referral URL once to unlock 3×3 matrix rewards.
+                </p>
+                {sponsorFeedback && (
+                  <div
+                    className={`p-2.5 rounded-xl text-xs font-semibold ${
+                      sponsorFeedback.ok ? 'bg-emerald-100 text-emerald-900' : 'bg-rose-100 text-rose-800'
+                    }`}
+                  >
+                    {sponsorFeedback.msg}
+                  </div>
+                )}
+                <form onSubmit={handleAttachSponsor} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Paste referral code or https://asspas.store/?ref=..."
+                    value={sponsorCodeInput}
+                    onChange={(e) => setSponsorCodeInput(e.target.value)}
+                    className="flex-1 px-3 py-2 bg-white border border-amber-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-emerald-500"
+                  />
+                  <button
+                    type="submit"
+                    disabled={bindingSponsor}
+                    className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl cursor-pointer shrink-0"
+                  >
+                    {bindingSponsor ? 'Linking...' : 'Link Sponsor'}
+                  </button>
+                </form>
+              </div>
+            )}
           </div>
 
-          {/* Right Column: QR Code & Quick Referral Card */}
+          {/* Right Column: QR Code & Account Status */}
           <div className="space-y-5">
             <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs text-center space-y-3">
               <div className="flex items-center justify-center gap-1.5 text-xs font-bold text-slate-900">
@@ -621,18 +694,14 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 <span>Your Referral QR Code</span>
               </div>
               <p className="text-[11px] text-slate-500">
-                Scan or share this QR code directly with local shops and neighbors.
+                Scan or share this QR code with neighbors and local shopkeepers.
               </p>
 
               <div className="flex justify-center p-3 bg-emerald-50/50 rounded-2xl border border-emerald-100">
                 {qrCodeDataUrl ? (
-                  <img
-                    src={qrCodeDataUrl}
-                    alt="Referral QR Code"
-                    className="w-48 h-48 rounded-xl shadow-xs"
-                  />
+                  <img src={qrCodeDataUrl} alt="Referral QR Code" className="w-44 h-44 rounded-xl shadow-xs" />
                 ) : (
-                  <div className="w-48 h-48 rounded-xl bg-slate-100 flex items-center justify-center text-xs text-slate-400">
+                  <div className="w-44 h-44 rounded-xl bg-slate-100 flex items-center justify-center text-xs text-slate-400">
                     Generating QR...
                   </div>
                 )}
@@ -642,7 +711,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 <button
                   type="button"
                   onClick={handleDownloadQr}
-                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <Download className="w-3.5 h-3.5" />
                   <span>Download QR</span>
@@ -650,7 +719,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
                   <span>{copiedLink ? 'Copied' : 'Copy Link'}</span>
@@ -658,19 +727,22 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
               </div>
             </div>
 
-            {/* Quick stats box */}
             <div className="bg-gradient-to-br from-slate-900 to-emerald-950 text-white rounded-2xl p-5 shadow-md space-y-3">
-              <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-300">
-                Account Status
-              </h4>
+              <h4 className="font-bold text-xs uppercase tracking-wider text-emerald-300">Account Summary</h4>
               <div className="space-y-2 text-xs">
                 <div className="flex items-center justify-between text-slate-300">
                   <span>Referral Code:</span>
-                  <span className="font-mono font-bold text-white select-all">{user.referralCode}</span>
+                  <button
+                    onClick={handleCopyCode}
+                    className="font-mono font-bold text-white hover:text-emerald-300 cursor-pointer flex items-center gap-1"
+                  >
+                    <span>{user.referralCode}</span>
+                    {copiedCode ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                  </button>
                 </div>
                 <div className="flex items-center justify-between text-slate-300">
                   <span>Referred By:</span>
-                  <span className="font-semibold text-emerald-300">{user.referredBy || 'Direct Community Registration'}</span>
+                  <span className="font-semibold text-emerald-300">{user.referredBy || 'Direct Signup'}</span>
                 </div>
                 <div className="flex items-center justify-between text-slate-300">
                   <span>Registered Shops:</span>
@@ -682,15 +754,14 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
         </div>
       )}
 
-      {/* TAB 2: REFERRAL NETWORK & 3X3 STAR MATRIX */}
+      {/* TAB 2: REFERRAL NETWORK & 3X3 MATRIX */}
       {activeProfileTab === 'referrals' && (
         <div className="space-y-6">
-          {/* Referral Link & Social Sharing Banner */}
           <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs space-y-4">
             <div>
               <h3 className="font-black text-base text-slate-900">Your Shareable Referral Link</h3>
               <p className="text-xs text-slate-500">
-                Invite neighbors, family, and local store owners. No code needed—when they click your link, attribution is 100% automatic!
+                Every new user gets +50 PTS. If you fill all 3 direct slots, your 4th+ invite automatically spills over into your downstream team!
               </p>
             </div>
 
@@ -701,83 +772,88 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer shadow-xs"
+                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shrink-0 cursor-pointer"
               >
-                {copiedLink ? <Check className="w-4 h-4 text-white" /> : <Copy className="w-4 h-4" />}
+                {copiedLink ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 <span>{copiedLink ? 'Copied Link' : 'Copy Referral Link'}</span>
               </button>
             </div>
 
-            {/* Social 1-Click Sharing */}
+            {igToast && (
+              <div className="p-2.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs font-semibold">
+                Referral link copied! Open Instagram and paste it into your Story Link sticker or Bio.
+              </div>
+            )}
+
             <div className="pt-2 border-t border-slate-100">
               <span className="text-[11px] font-bold text-slate-600 block mb-2 uppercase tracking-wider">
-                Instant 1-Click Social Sharing:
+                1-Click Social Sharing:
               </span>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 <button
                   type="button"
                   onClick={() => {
-                    const text = `Assalam-o-Alaikum! Join asspas.store to discover verified shops in Pakistan, locate nearby businesses, and get genuine Elegancia Mineral Water! 🎁 Register via my referral link to get 50 Free Welcome Points: ${referralUrl}`;
+                    const text = `Assalam-o-Alaikum! Join asspas.store to find verified shops & pure Elegancia Mineral Water across Pakistan! Get 50 Free Welcome Points via my link: ${referralUrl}`;
                     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
                   }}
-                  className="py-2.5 px-3 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-transform active:scale-95"
+                  className="py-2.5 px-3 bg-[#25D366] hover:bg-[#20ba5a] text-white rounded-xl font-bold text-xs cursor-pointer"
                 >
-                  <span>WhatsApp</span>
+                  WhatsApp
                 </button>
-
                 <button
                   type="button"
                   onClick={() => {
-                    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralUrl)}`, '_blank');
+                    window.open(
+                      `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(referralUrl)}`,
+                      '_blank'
+                    );
                   }}
-                  className="py-2.5 px-3 bg-[#1877F2] hover:bg-[#166fe5] text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-transform active:scale-95"
+                  className="py-2.5 px-3 bg-[#1877F2] hover:bg-[#166fe5] text-white rounded-xl font-bold text-xs cursor-pointer"
                 >
-                  <span>Facebook</span>
+                  Facebook
                 </button>
-
                 <button
                   type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(referralUrl);
-                    alert('Referral link copied! Paste it in your Instagram story link sticker or bio.');
+                    setIgToast(true);
+                    setTimeout(() => setIgToast(false), 3500);
                   }}
-                  className="py-2.5 px-3 bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-transform active:scale-95"
+                  className="py-2.5 px-3 bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 text-white rounded-xl font-bold text-xs cursor-pointer"
                 >
-                  <span>Instagram</span>
+                  Instagram
                 </button>
-
                 <button
                   type="button"
                   onClick={() => {
-                    const text = `Find verified stores & pure Elegancia water in Pakistan on asspas.store! 50 Free Welcome Points via my link: ${referralUrl}`;
+                    const text = `Find verified stores & Elegancia water in Pakistan on asspas.store! Claim 50 Free Welcome PTS: ${referralUrl}`;
                     window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`, '_blank');
                   }}
-                  className="py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs flex items-center justify-center gap-2 cursor-pointer shadow-2xs transition-transform active:scale-95"
+                  className="py-2.5 px-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-xs cursor-pointer"
                 >
-                  <span>X / Twitter</span>
+                  X / Twitter
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Star Progression Ladder (1 to 10 Stars) */}
+          {/* 1-10 Star Matrix Progression */}
           <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between flex-wrap gap-2">
               <div>
                 <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
                   <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
-                  <span>3x3 Star Matrix Progression (1 to 10 Stars)</span>
+                  <span>3×3 Star Matrix Progression (1 to 10 Stars)</span>
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Each user has 3 direct children slots. 3 direct referrals unlock 1 Star. When all 3 children attain 1 Star, you advance to 2 Stars!
+                  3 direct matrix nodes unlock 1 Star. When all 3 attain 1 Star, you reach 2 Stars—all the way up to 10 Stars.
                 </p>
               </div>
               <div className="bg-amber-50 border border-amber-300 text-amber-900 px-3.5 py-1.5 rounded-xl font-black text-xs">
-                Current Rank: ★ {currentStar} Star Leader
+                Rank: ★ {currentStar} / 10 Stars
               </div>
             </div>
 
-            {/* Visual 10 Star Track */}
             <div className="grid grid-cols-5 sm:grid-cols-10 gap-2 text-center pt-2">
               {Array.from({ length: 10 }, (_, i) => i + 1).map((starNum) => {
                 const isAchieved = currentStar >= starNum;
@@ -789,13 +865,11 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                       isAchieved
                         ? 'bg-amber-500 text-slate-950 border-amber-600 font-black shadow-xs'
                         : isCurrent
-                        ? 'bg-amber-50 text-amber-900 border-amber-300 font-bold animate-pulse'
+                        ? 'bg-amber-50 text-amber-900 border-amber-300 font-bold'
                         : 'bg-slate-50 text-slate-400 border-slate-200'
                     }`}
                   >
-                    <div className="text-sm font-black flex items-center justify-center">
-                      ★ {starNum}
-                    </div>
+                    <div className="text-sm font-black">★ {starNum}</div>
                     <span className="text-[9px] block uppercase mt-0.5">
                       {isAchieved ? 'Earned' : isCurrent ? 'Next' : 'Locked'}
                     </span>
@@ -804,25 +878,22 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
               })}
             </div>
 
-            {/* Next Star Progress Callout */}
             <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-xs text-emerald-950 flex items-center justify-between flex-wrap gap-2">
               <span>
-                You currently have <strong>{directCount} direct registrations</strong>. 
-                {neededForNextStar > 0 && directCount < 3
-                  ? ` Invite ${neededForNextStar} more direct members to unlock ★ 1 Star!`
-                  : ` Help your direct referrals grow their network to advance further!`}
+                You have <strong>{directCount} invites</strong>.{' '}
+                {neededForNextStar > 0
+                  ? `Invite ${neededForNextStar} more member${neededForNextStar > 1 ? 's' : ''} to unlock ★ 1 Star!`
+                  : 'Help your 3 direct nodes build their teams to climb through 2–10 Stars.'}
               </span>
-              <span className="font-bold text-emerald-800">
-                Reward: 50 PTS per direct member + 50 PTS when they create a shop
-              </span>
+              <span className="font-bold text-emerald-800">+50 PTS / Signup · +50 PTS / First Shop</span>
             </div>
           </div>
 
-          {/* 3x3 Downline Network List */}
+          {/* 3x3 Matrix Tree with Level 2 Spillover View */}
           <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs space-y-4">
             <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
               <Users className="w-4 h-4 text-emerald-600" />
-              <span>Your Direct 3-Slot Downline Matrix ({referralTree?.children.length || 0}/3 filled)</span>
+              <span>Your 3×3 Matrix Network ({referralTree?.children.length || 0}/3 Direct Slots Filled)</span>
             </h3>
 
             {referralTree && referralTree.children.length > 0 ? (
@@ -833,38 +904,61 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                       <span className="text-[10px] bg-emerald-600 text-white font-bold px-2 py-0.5 rounded-full">
                         Slot #{child.matrixSlot || idx + 1}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {child.joinedDate}
-                      </span>
+                      <span className="text-[10px] text-amber-700 font-bold">★ {child.starLevel || 0}</span>
                     </div>
-                    <div className="font-bold text-slate-800 text-xs">{child.name}</div>
-                    <div className="text-[11px] text-slate-500 font-mono">{child.referralCode}</div>
+                    <div>
+                      <div className="font-bold text-slate-800 text-xs">{child.name}</div>
+                      <div className="text-[11px] text-slate-500 font-mono">{child.referralCode}</div>
+                    </div>
                     <div className="pt-1 flex items-center justify-between text-[10px] text-slate-600 border-t border-slate-200/60">
                       <span>Shops Created:</span>
                       <span className="font-bold text-emerald-700">{child.shopsCreated || 0} Stores</span>
                     </div>
+
+                    {/* Level 2 Downstream Children under this slot */}
+                    {child.children && child.children.length > 0 && (
+                      <div className="pt-2 border-t border-slate-200/80 space-y-1">
+                        <div className="text-[9px] font-bold uppercase text-slate-400">
+                          Level 2 Team ({child.children.length}/3):
+                        </div>
+                        {child.children.map((sub, si) => (
+                          <div
+                            key={sub.id || si}
+                            className="flex items-center justify-between bg-white px-2 py-1 rounded-lg border border-slate-200 text-[10px]"
+                          >
+                            <span className="font-semibold text-slate-700 truncate">{sub.name}</span>
+                            <span className="text-emerald-700 font-mono">Slot {sub.matrixSlot}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
-                {/* Empty slots placeholders */}
+
                 {Array.from({ length: Math.max(0, 3 - referralTree.children.length) }).map((_, i) => (
-                  <div key={`empty-${i}`} className="p-3.5 bg-dashed border-2 border-slate-200 border-dashed rounded-xl flex flex-col items-center justify-center text-center p-6 text-slate-400">
+                  <div
+                    key={`empty-${i}`}
+                    className="border-2 border-slate-200 border-dashed rounded-xl flex flex-col items-center justify-center text-center p-6 text-slate-400"
+                  >
                     <Users className="w-6 h-6 mb-1 text-slate-300" />
-                    <span className="text-xs font-semibold">Available Matrix Slot #{referralTree.children.length + i + 1}</span>
-                    <span className="text-[10px] text-slate-400 mt-0.5">Share link to fill slot</span>
+                    <span className="text-xs font-semibold">
+                      Open Matrix Slot #{referralTree.children.length + i + 1}
+                    </span>
+                    <span className="text-[10px] text-slate-400 mt-0.5">Share your link to fill slot</span>
                   </div>
                 ))}
               </div>
             ) : (
               <div className="text-center py-8 text-slate-400 space-y-2">
                 <Users className="w-10 h-10 mx-auto text-slate-300" />
-                <h4 className="font-bold text-slate-800 text-xs">No direct downline registrations yet</h4>
+                <h4 className="font-bold text-slate-800 text-xs">No matrix members joined yet</h4>
                 <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
-                  Send your referral link to friends or WhatsApp community groups to start filling your 3 matrix slots.
+                  Share your referral link via WhatsApp or QR code to populate your 3 direct slots and trigger spillover rewards.
                 </p>
                 <button
                   type="button"
                   onClick={handleCopyLink}
-                  className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs"
+                  className="mt-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer"
                 >
                   Copy Referral Link
                 </button>
@@ -874,56 +968,54 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
         </div>
       )}
 
-      {/* TAB 3: POINTS LEDGER (PTS EXPLAINED) */}
+      {/* TAB 3: POINTS LEDGER */}
       {activeProfileTab === 'points' && (
         <div className="space-y-6">
-          {/* PTS Meaning & Explanation Card */}
           <div className="bg-gradient-to-r from-emerald-900 to-teal-900 text-white rounded-2xl p-5 sm:p-6 shadow-md space-y-3">
             <div className="flex items-center gap-2">
               <Gift className="w-5 h-5 text-emerald-300" />
               <h3 className="text-base font-black tracking-tight text-white">
-                What does "PTS" stand for on asspas.store?
+                What does &quot;PTS&quot; stand for on asspas.store?
               </h3>
             </div>
             <p className="text-xs text-emerald-100/90 leading-relaxed">
-              <strong>PTS stands for Points</strong>—the official digital loyalty & reward currency of <strong>asspas.store</strong>.
-              Members earn PTS by welcoming verified neighbors, publishing local business stores, and referring customers to authentic
-              Elegancia Mineral Water.
+              <strong>PTS stands for Points</strong>—the official digital loyalty reward unit of{' '}
+              <strong>asspas.store</strong>. 1 PTS = 1 Reward Point. Redeem PTS for Elegancia Mineral Water cans,
+              delivery fee waivers, and partner shopping vouchers.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 text-xs">
               <div className="bg-white/10 rounded-xl p-3 border border-white/20">
-                <span className="text-emerald-300 font-bold block text-[11px]">Direct Referral Bonus</span>
+                <span className="text-emerald-300 font-bold block text-[11px]">Direct Referral Signup</span>
                 <span className="text-lg font-black text-white">+50 PTS</span>
-                <span className="text-[10px] text-emerald-200 block">Awarded instantly when someone joins via your link</span>
+                <span className="text-[10px] text-emerald-200 block">Earned when someone registers via your link</span>
               </div>
               <div className="bg-white/10 rounded-xl p-3 border border-white/20">
-                <span className="text-emerald-300 font-bold block text-[11px]">Referred Member Creates Shop</span>
+                <span className="text-emerald-300 font-bold block text-[11px]">Downline Opens First Shop</span>
                 <span className="text-lg font-black text-white">+50 PTS</span>
-                <span className="text-[10px] text-emerald-200 block">Bonus when a direct child registers their first store</span>
+                <span className="text-[10px] text-emerald-200 block">Plus +5 PTS (L1) &amp; +10 PTS (L2) indirect rewards</span>
               </div>
               <div className="bg-white/10 rounded-xl p-3 border border-white/20">
-                <span className="text-emerald-300 font-bold block text-[11px]">Create Your Own Shop</span>
+                <span className="text-emerald-300 font-bold block text-[11px]">Register Your Shop</span>
                 <span className="text-lg font-black text-white">+100 PTS</span>
-                <span className="text-[10px] text-emerald-200 block">Special welcome merchant bonus</span>
+                <span className="text-[10px] text-emerald-200 block">Welcome merchant verification bonus</span>
               </div>
             </div>
           </div>
 
-          {/* Points Transactions History Table */}
           <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <h3 className="font-extrabold text-sm text-slate-900">Points Activity Ledger</h3>
-                <p className="text-[11px] text-slate-500">Immutable record of every credit and debit to your account.</p>
+                <p className="text-[11px] text-slate-500">Every credit &amp; redemption recorded on your account.</p>
               </div>
               <div className="text-right">
-                <span className="text-[10px] text-slate-400 font-bold uppercase block">Current Balance</span>
+                <span className="text-[10px] text-slate-400 font-bold uppercase block">Balance</span>
                 <span className="text-lg font-black text-emerald-700">{user.points || 0} PTS</span>
               </div>
             </div>
 
             {loadingLedger ? (
-              <div className="text-center py-8 text-xs text-slate-400">Loading transactions ledger...</div>
+              <div className="text-center py-8 text-xs text-slate-400">Loading ledger...</div>
             ) : pointsLedger.length > 0 ? (
               <div className="divide-y divide-slate-100 text-xs">
                 {pointsLedger.map((tx) => (
@@ -943,7 +1035,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 ))}
               </div>
             ) : (
-              <div className="text-center py-8 text-xs text-slate-400">No point transactions recorded yet.</div>
+              <div className="text-center py-8 text-xs text-slate-400">
+                No PTS transactions yet. Share your referral link or register your business to earn Points!
+              </div>
             )}
           </div>
         </div>
@@ -955,12 +1049,12 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h3 className="font-black text-base text-slate-900">Your Registered Businesses</h3>
-              <p className="text-xs text-slate-500">Manage your shops, inventory, images, and daily posts.</p>
+              <p className="text-xs text-slate-500">Open full storefront page, edit details, manage inventory &amp; posts.</p>
             </div>
             <button
               type="button"
               onClick={onOpenAddShop}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer"
             >
               <PlusCircle className="w-4 h-4" />
               <span>Register New Shop (+100 PTS)</span>
@@ -970,20 +1064,25 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
           {userShops.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {userShops.map((shop) => (
-                <div key={shop.id} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:border-emerald-300 transition-all flex flex-col">
+                <div
+                  key={shop.id}
+                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:border-emerald-300 transition-all flex flex-col"
+                >
                   <div className="relative h-40 bg-slate-100">
                     <img
-                      src={shop.image}
+                      src={shop.image || '/images/store_imtiaz_grocery_1793110437258.jpg'}
                       alt={shop.name}
                       className="w-full h-full object-cover"
                     />
-                    <span className="absolute top-3 left-3 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                    <span className="absolute top-3 left-3 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
                       {shop.category}
                     </span>
-                    <span className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-md ${
-                      shop.status === 'approved' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950'
-                    }`}>
-                      {shop.status || 'Active'}
+                    <span
+                      className={`absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-md capitalize ${
+                        shop.status === 'approved' ? 'bg-emerald-600 text-white' : 'bg-amber-500 text-slate-950'
+                      }`}
+                    >
+                      {shop.status || 'approved'}
                     </span>
                   </div>
 
@@ -992,7 +1091,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                       <h4 className="font-bold text-sm text-slate-900 truncate">{shop.name}</h4>
                       <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                         <MapPin className="w-3 h-3 text-slate-400" />
-                        <span>{shop.address}, {shop.city}</span>
+                        <span>
+                          {shop.area || shop.address}, {shop.city}
+                        </span>
                       </p>
                     </div>
 
@@ -1000,16 +1101,16 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                       <button
                         type="button"
                         onClick={() => onOpenShopDetails(shop)}
-                        className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-bold text-[11px] transition-colors cursor-pointer text-center"
+                        className="flex-1 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-bold text-[11px] cursor-pointer"
                       >
-                        View Public Profile
+                        View Storefront
                       </button>
                       <button
                         type="button"
                         onClick={() => onSelectShop(shop)}
-                        className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] transition-colors cursor-pointer text-center"
+                        className="flex-1 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] cursor-pointer"
                       >
-                        Manage Store
+                        Manage Studio
                       </button>
                     </div>
                   </div>
@@ -1021,12 +1122,12 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
               <Store className="w-12 h-12 text-slate-300 mx-auto" />
               <h4 className="font-bold text-slate-900 text-sm">No businesses registered yet</h4>
               <p className="text-xs text-slate-500 max-w-md mx-auto">
-                Establish your presence on asspas.store to get discovered by local customers, sell Elegancia water, and receive +100 PTS!
+                Publish your store on asspas.store to get discovered across Pakistan &amp; earn +100 PTS!
               </p>
               <button
                 type="button"
                 onClick={onOpenAddShop}
-                className="mt-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer shadow-xs inline-flex items-center gap-2"
+                className="mt-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs cursor-pointer inline-flex items-center gap-2"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>Register Your Shop Now</span>
@@ -1036,60 +1137,118 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
         </div>
       )}
 
-      {/* TAB 5: SAVED FAVORITES */}
+      {/* TAB 5: SAVED FAVORITES (BOTH SHOPS AND PRODUCTS) */}
       {activeProfileTab === 'favorites' && (
-        <div className="space-y-5">
-          <div>
-            <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
-              <Heart className="w-5 h-5 text-rose-500 fill-rose-500" />
-              <span>Saved Favorite Businesses ({favoriteShops.length})</span>
-            </h3>
-            <p className="text-xs text-slate-500">Quick access to bookmarked stores and service providers in your neighborhood.</p>
+        <div className="space-y-6">
+          {/* Saved Shops */}
+          <div className="space-y-3">
+            <div>
+              <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
+                <Heart className="w-5 h-5 text-rose-500 fill-rose-500" />
+                <span>Saved Businesses ({favoriteShops.length})</span>
+              </h3>
+            </div>
+
+            {favoriteShops.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {favoriteShops.map((shop) => (
+                  <div
+                    key={shop.id}
+                    className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:border-emerald-300 transition-all flex items-center gap-3 p-3"
+                  >
+                    <img
+                      src={shop.image || '/images/store_imtiaz_grocery_1793110437258.jpg'}
+                      alt={shop.name}
+                      onClick={() => onOpenShopDetails(shop)}
+                      className="w-16 h-16 rounded-xl object-cover shrink-0 cursor-pointer"
+                    />
+                    <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onOpenShopDetails(shop)}>
+                      <h4 className="font-bold text-xs text-slate-900 truncate">{shop.name}</h4>
+                      <p className="text-[10px] text-slate-500 truncate">{shop.category}</p>
+                      <p className="text-[10px] text-emerald-700 font-medium truncate">
+                        {shop.area || shop.city}
+                      </p>
+                    </div>
+                    {onToggleFavoriteShop && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleFavoriteShop(shop.id)}
+                        title="Remove from favorites"
+                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-xs text-slate-400">
+                No saved shops yet. Click the heart icon on any store card to bookmark it here.
+              </div>
+            )}
           </div>
 
-          {favoriteShops.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {favoriteShops.map((shop) => (
-                <div
-                  key={shop.id}
-                  onClick={() => onOpenShopDetails(shop)}
-                  className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:border-emerald-300 transition-all cursor-pointer flex items-center gap-3 p-3"
-                >
-                  <img
-                    src={shop.image}
-                    alt={shop.name}
-                    className="w-16 h-16 rounded-xl object-cover shrink-0"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-xs text-slate-900 truncate">{shop.name}</h4>
-                    <p className="text-[10px] text-slate-500 truncate">{shop.category}</p>
-                    <p className="text-[10px] text-emerald-700 font-medium truncate">📍 {shop.area || shop.city}</p>
+          {/* Saved Products */}
+          <div className="space-y-3">
+            <div>
+              <h3 className="font-black text-base text-slate-900 flex items-center gap-2">
+                <Package className="w-5 h-5 text-emerald-600" />
+                <span>Saved Products &amp; Items ({favoriteProductEntries.length})</span>
+              </h3>
+            </div>
+
+            {favoriteProductEntries.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {favoriteProductEntries.map(({ shop, item }) => (
+                  <div
+                    key={item.id}
+                    className="bg-white rounded-2xl border border-slate-200 p-3 shadow-xs flex items-center gap-3"
+                  >
+                    <img
+                      src={item.image || shop.image || '/images/store_imtiaz_grocery_1793110437258.jpg'}
+                      alt={item.name}
+                      onClick={() => onOpenShopDetails(shop)}
+                      className="w-16 h-16 rounded-xl object-cover shrink-0 cursor-pointer bg-slate-100"
+                    />
+                    <div className="min-w-0 flex-1 cursor-pointer" onClick={() => onOpenShopDetails(shop)}>
+                      <h4 className="font-bold text-xs text-slate-900 truncate">{item.name}</h4>
+                      <p className="text-xs font-black text-emerald-700">Rs. {item.price.toLocaleString()}</p>
+                      <p className="text-[10px] text-slate-500 truncate">From: {shop.name}</p>
+                    </div>
+                    {onToggleFavoriteProduct && (
+                      <button
+                        type="button"
+                        onClick={() => onToggleFavoriteProduct(item.id)}
+                        title="Remove saved product"
+                        className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg cursor-pointer shrink-0"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-2">
-              <Heart className="w-10 h-10 text-slate-300 mx-auto" />
-              <h4 className="font-bold text-slate-900 text-xs">No saved favorites</h4>
-              <p className="text-[11px] text-slate-500">
-                Click the heart icon on any store card across the site to bookmark it here.
-              </p>
-            </div>
-          )}
+                ))}
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-xs text-slate-400">
+                No saved products yet. Click the heart icon on any product inside a shop&apos;s catalog to save it.
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {/* TAB 6: SUPPORT TICKETS & COMPLAINTS */}
+      {/* TAB 6: SUPPORT TICKETS */}
       {activeProfileTab === 'support' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Form: Submit New Support Ticket */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs space-y-4">
               <div>
-                <h3 className="font-extrabold text-sm text-slate-900">Submit a Complaint, Feedback, or Suggestion</h3>
+                <h3 className="font-extrabold text-sm text-slate-900">
+                  Submit a Complaint, Feedback, or Suggestion
+                </h3>
                 <p className="text-[11px] text-slate-500">
-                  Your voice helps asspas.store grow. Logged-in credentials are automatically linked.
+                  Your account details ({user.name} · {user.phone || user.email}) are attached automatically.
                 </p>
               </div>
 
@@ -1101,20 +1260,17 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
               )}
 
               <form onSubmit={handleCreateTicket} className="space-y-4 text-xs">
-                {/* Type Selection */}
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Type of Message *
-                  </label>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Type of Message *</label>
                   <div className="grid grid-cols-3 gap-2">
                     {(['complaint', 'feedback', 'suggestion'] as const).map((t) => (
                       <button
                         key={t}
                         type="button"
                         onClick={() => setTicketType(t)}
-                        className={`py-2 px-3 rounded-xl border text-xs font-bold capitalize transition-all cursor-pointer ${
+                        className={`py-2 px-3 rounded-xl border text-xs font-bold capitalize cursor-pointer ${
                           ticketType === t
-                            ? 'bg-emerald-800 text-white border-emerald-900 shadow-xs'
+                            ? 'bg-emerald-800 text-white border-emerald-900'
                             : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
                         }`}
                       >
@@ -1125,13 +1281,11 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">
-                    Subject / Title *
-                  </label>
+                  <label className="block text-[11px] font-semibold text-slate-700 mb-1">Subject / Title *</label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Issue with store phone number or suggested feature"
+                    placeholder="e.g. Suggestion for new market area or store issue"
                     value={ticketSubject}
                     onChange={(e) => setTicketSubject(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-xs"
@@ -1145,7 +1299,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                   <textarea
                     required
                     rows={4}
-                    placeholder="Please provide full details, shop name (if applicable), or recommendations..."
+                    placeholder="Write details here..."
                     value={ticketMessage}
                     onChange={(e) => setTicketMessage(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-emerald-500 font-medium text-xs"
@@ -1155,61 +1309,53 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 <button
                   type="submit"
                   disabled={submittingTicket}
-                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer shadow-xs transition-colors"
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs flex items-center gap-2 cursor-pointer"
                 >
                   <MessageSquare className="w-4 h-4" />
-                  <span>{submittingTicket ? 'Submitting Ticket...' : 'Submit Support Ticket'}</span>
+                  <span>{submittingTicket ? 'Submitting...' : 'Submit Support Ticket'}</span>
                 </button>
               </form>
             </div>
           </div>
 
-          {/* Right Column: Ticket History & Status */}
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3">
-              <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider">
-                Your Ticket History ({userTickets.length})
-              </h4>
-              <p className="text-[11px] text-slate-500">Track progress and read administrative responses.</p>
-
-              {userTickets.length > 0 ? (
-                <div className="space-y-3 divide-y divide-slate-100 text-xs">
-                  {userTickets.map((t) => (
-                    <div key={t.id} className="pt-3 first:pt-0 space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
-                          {t.type}
-                        </span>
-                        <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            t.status === 'resolved'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : t.status === 'in_review'
-                              ? 'bg-blue-100 text-blue-800'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {t.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                      <div className="font-bold text-slate-800 text-xs">{t.subject}</div>
-                      <p className="text-[11px] text-slate-600 line-clamp-2">{t.message}</p>
-
-                      {t.adminReply && (
-                        <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-950 mt-1">
-                          <span className="text-[10px] font-bold text-emerald-800 block">Admin Reply:</span>
-                          <p className="text-[11px] mt-0.5">{t.adminReply}</p>
-                        </div>
-                      )}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-3">
+            <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider">
+              Ticket History ({userTickets.length})
+            </h4>
+            {userTickets.length > 0 ? (
+              <div className="space-y-3 divide-y divide-slate-100 text-xs">
+                {userTickets.map((t) => (
+                  <div key={t.id} className="pt-3 first:pt-0 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                        {t.type}
+                      </span>
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          t.status === 'resolved'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : t.status === 'in_review'
+                            ? 'bg-blue-100 text-blue-800'
+                            : 'bg-amber-100 text-amber-800'
+                        }`}
+                      >
+                        {t.status.replace('_', ' ')}
+                      </span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-slate-400 text-xs">
-                  No active support tickets.
-                </div>
-              )}
-            </div>
+                    <div className="font-bold text-slate-800 text-xs">{t.subject}</div>
+                    <p className="text-[11px] text-slate-600">{t.message}</p>
+                    {t.adminReply && (
+                      <div className="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-950">
+                        <span className="text-[10px] font-bold text-emerald-800 block">Admin Reply:</span>
+                        <p className="text-[11px] mt-0.5">{t.adminReply}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-6 text-slate-400 text-xs">No active support tickets.</div>
+            )}
           </div>
         </div>
       )}

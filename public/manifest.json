@@ -1,7 +1,9 @@
 {
+  "id": "/",
+  "scope": "/",
   "name": "asspas.store - Local Shops & Elegancia Water",
   "short_name": "asspas.store",
-  "description": "Discover nearby local shops, grocery stores, pharmacies, and verified Elegancia Mineral Water stockists.",
+  "description": "Discover nearby local shops, grocery stores, pharmacies, and verified Elegancia Mineral Water stockists across Pakistan.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#064e3b",
@@ -9,19 +11,22 @@
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "/favicon.ico",
-      "sizes": "64x64 32x32 24x24 16x16",
-      "type": "image/x-icon"
+      "src": "/pwa-192x192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
-      "src": "/icon-192.png",
+      "src": "/pwa-512x512.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "512x512",
+      "purpose": "any"
     },
     {
-      "src": "/icon-512.png",
+      "src": "/pwa-maskable-512x512.png",
       "type": "image/png",
-      "sizes": "512x512"
+      "sizes": "512x512",
+      "purpose": "maskable"
     }
   ]
 }

@@ -1,22 +1,41 @@
-import { 
-  collection, 
-  doc, 
-  getDoc, 
-  getDocs, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
   orderBy,
   serverTimestamp,
-  increment,
-  addDoc
+  addDoc,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { Shop, GoodsOrServiceType } from '../types';
 import { INITIAL_SHOPS } from '../data/mockShops';
 import { DEFAULT_FOLLOWER_THRESHOLDS } from './adminService';
+
+/**
+ * Recursively strips any `undefined` keys/values before Firestore writes
+ * so `setDoc` / `updateDoc` never throws "Unsupported field value: undefined".
+ */
+export function stripUndefinedDeep<T>(obj: T): T {
+  if (Array.isArray(obj)) {
+    return obj.map((item) => stripUndefinedDeep(item)) as unknown as T;
+  }
+  if (obj && typeof obj === 'object' && !(obj instanceof Date)) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      if (v !== undefined) {
+        out[k] = stripUndefinedDeep(v);
+      }
+    }
+    return out as T;
+  }
+  return obj;
+}
 
 // Haversine formula for exact distance in kilometers
 export function calculateHaversineDistance(
@@ -25,7 +44,7 @@ export function calculateHaversineDistance(
   lat2: number,
   lon2: number
 ): number {
-  const R = 6371; // Earth's radius in km
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
@@ -54,23 +73,33 @@ export async function fetchShopsFromDb(): Promise<Shop[]> {
             itemType: (data.itemType as GoodsOrServiceType) || 'goods',
             shopType: data.shopType || 'Retail Store',
             rating: data.rating || 4.5,
-            reviewsCount: data.reviewsCount || 1,
+            reviewsCount: data.reviewsCount || (Array.isArray(data.reviews) ? data.reviews.length : 1),
             distance: data.distance || 0.8,
             address: data.address || '',
             area: data.area || '',
             city: data.city || 'Peshawar',
-            province: data.province || 'Khyber Pakhtunkhwa',
+            province: data.province || 'Khyber Pakhtunkhwa (KP)',
+            unionCouncil: data.unionCouncil || '',
+            marketOrBazar: data.marketOrBazar || '',
+            streetOrPlaza: data.streetOrPlaza || '',
+            openAddress: data.openAddress || '',
+            viewsCount: data.viewsCount || 0,
             isOpen: data.isOpen !== undefined ? data.isOpen : true,
             openingHours: data.openingHours || '9:00 AM - 10:00 PM',
             phone: data.phone || '',
+            phones: data.phones || [],
+            orderPhoneIndex: data.orderPhoneIndex ?? 0,
+            orderPhone: data.orderPhone || data.phone || '',
             whatsapp: data.whatsapp || '',
             email: data.email || '',
             hasEleganciaWater: !!data.hasEleganciaWater,
             eleganciaDetails: data.eleganciaDetails || undefined,
             catalog: data.catalog || [],
             tags: data.tags || [],
-            image: data.image || '',
+            image: data.image || '/images/store_imtiaz_grocery_1793110437258.jpg',
+            imageUrl: data.imageUrl || data.image || '',
             images: data.images || [],
+            businessNature: data.businessNature || '',
             coords: data.coords || { lat: 34.0151, lng: 71.5249, mapX: 50, mapY: 50 },
             verified: !!data.verified,
             featured: !!data.featured,
@@ -81,7 +110,9 @@ export async function fetchShopsFromDb(): Promise<Shop[]> {
             followersCount: data.followersCount || 0,
             unlockedBadges: data.unlockedBadges || [],
             reviews: data.reviews || [],
-            createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
+            createdAt: data.createdAt?.seconds
+              ? new Date(data.createdAt.seconds * 1000).toISOString()
+              : new Date().toISOString(),
           };
         });
         return dbShops;
@@ -89,7 +120,6 @@ export async function fetchShopsFromDb(): Promise<Shop[]> {
       return INITIAL_SHOPS;
     })();
 
-    // Timeout protection: if network or backend takes > 4s, return initial dataset instantly
     const timeoutPromise = new Promise<Shop[]>((resolve) => {
       setTimeout(() => resolve(INITIAL_SHOPS), 4000);
     });
@@ -101,9 +131,6 @@ export async function fetchShopsFromDb(): Promise<Shop[]> {
   }
 }
 
-/**
- * Seed initial shops into Firestore if empty
- */
 export async function seedInitialShopsIfEmpty(): Promise<void> {
   try {
     const fetchPromise = getDocs(collection(db, 'shops'));
@@ -119,32 +146,36 @@ export async function seedInitialShopsIfEmpty(): Promise<void> {
           status: 'approved',
         };
         await setDoc(doc(db, 'shops', s.id), {
-          ...shopWithDefaults,
+          ...stripUndefinedDeep(shopWithDefaults),
           createdAt: serverTimestamp(),
         }).catch(() => {});
       }
     }
   } catch {
-    // Graceful silent fallback if offline or backend is delayed
+    // Graceful silent fallback
   }
 }
 
 /**
- * Create a new shop in Firestore and process 50-point bonus if first shop
+ * Create a new shop in Firestore, respecting requireShopApproval setting,
+ * stripping undefined fields safely, and crediting creator + referral chain.
  */
 export async function createShopInDb(
   shopData: Omit<Shop, 'id' | 'followersCount' | 'unlockedBadges'>,
-  ownerUid: string
-): Promise<{ success: boolean; shopId: string; pointsAwarded: number }> {
+  ownerUid: string,
+  requireApproval: boolean = false
+): Promise<{ success: boolean; shopId: string; pointsAwarded: number; status: 'approved' | 'pending' }> {
   const shopId = `shop-${Date.now()}`;
-  const newShop: Shop = {
+  const finalStatus: 'approved' | 'pending' = requireApproval ? 'pending' : 'approved';
+
+  const newShop: Shop = stripUndefinedDeep({
     ...shopData,
     id: shopId,
     ownerId: ownerUid,
     followersCount: 0,
     unlockedBadges: [],
-    status: 'approved',
-  };
+    status: finalStatus,
+  });
 
   await setDoc(doc(db, 'shops', shopId), {
     ...newShop,
@@ -154,7 +185,6 @@ export async function createShopInDb(
 
   let pointsAwarded = 100;
 
-  // Process Rewards & Points
   try {
     const userRef = doc(db, 'users', ownerUid);
     const userSnap = await getDoc(userRef);
@@ -165,7 +195,6 @@ export async function createShopInDb(
       const currentPoints = userData.points || 0;
       const isFirstShop = currentShopCount === 0;
 
-      // 1. Award 100 PTS to the user for creating their shop
       const updatedUserPoints = currentPoints + 100;
       await updateDoc(userRef, {
         shopsCount: currentShopCount + 1,
@@ -183,9 +212,7 @@ export async function createShopInDb(
         createdAt: serverTimestamp(),
       });
 
-      // 2. If first shop and user was referred by someone, award direct parent 50 PTS
       if (isFirstShop && userData.referredBy) {
-        // Find inviter by referral code or UID
         let inviterDoc: any = null;
         const q = query(collection(db, 'users'), where('referralCode', '==', userData.referredBy));
         const inviterSnap = await getDocs(q);
@@ -199,8 +226,7 @@ export async function createShopInDb(
         if (inviterDoc) {
           const inviterUid = inviterDoc.id;
           const inviterData = inviterDoc.data();
-          const currentInviterPoints = inviterData.points || 0;
-          const updatedInviterPoints = currentInviterPoints + 50;
+          const updatedInviterPoints = (inviterData.points || 0) + 50;
 
           await updateDoc(doc(db, 'users', inviterUid), {
             points: updatedInviterPoints,
@@ -217,8 +243,6 @@ export async function createShopInDb(
             createdAt: serverTimestamp(),
           });
 
-          // 3. Multi-tier indirect referral rewards
-          // Level 1 indirect parent: 5 points
           const level1ParentId = inviterData.matrixParentId;
           if (level1ParentId) {
             try {
@@ -240,7 +264,6 @@ export async function createShopInDb(
                   createdAt: serverTimestamp(),
                 });
 
-                // Level 2 indirect parent: 10 points
                 const level2ParentId = l1Data.matrixParentId;
                 if (level2ParentId) {
                   const l2Snap = await getDoc(doc(db, 'users', level2ParentId));
@@ -273,11 +296,48 @@ export async function createShopInDb(
     console.warn('Error processing shop points reward:', err);
   }
 
-  return { success: true, shopId, pointsAwarded };
+  return { success: true, shopId, pointsAwarded, status: finalStatus };
 }
 
 /**
- * Create a shop post (promotional / updates)
+ * Persist a customer review to Firestore `shops/{shopId}` and update rating/reviewsCount.
+ */
+export async function addShopReviewInDb(
+  shopId: string,
+  review: { id: string; userName: string; rating: number; date: string; comment: string },
+  existingReviews: { id: string; userName: string; rating: number; date: string; comment: string }[] = [],
+  baseReviewsCount: number = 0,
+  baseRating: number = 4.5
+): Promise<{ reviewsCount: number; rating: number; reviews: any[] }> {
+  const updatedReviews = [review, ...existingReviews];
+  const nextCount = Math.max(updatedReviews.length, baseReviewsCount + 1);
+  const prevTotal = baseRating * baseReviewsCount;
+  const nextRating =
+    baseReviewsCount > 0
+      ? Number(((prevTotal + review.rating) / (baseReviewsCount + 1)).toFixed(1))
+      : review.rating;
+
+  try {
+    const shopRef = doc(db, 'shops', shopId);
+    await setDoc(
+      shopRef,
+      {
+        reviews: stripUndefinedDeep(updatedReviews),
+        reviewsCount: nextCount,
+        rating: nextRating,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    console.warn('Could not persist shop review to Firestore:', err);
+  }
+
+  return { reviewsCount: nextCount, rating: nextRating, reviews: updatedReviews };
+}
+
+/**
+ * Create a shop post with daily post limit & permission check
  */
 export async function createShopPost(postData: {
   shopId: string;
@@ -287,11 +347,32 @@ export async function createShopPost(postData: {
   content: string;
   images: string[];
   linkUrl?: string;
-}): Promise<{ success: boolean; id?: string; error?: string }> {
+}, dailyLimit: number = 5, allowPosting: boolean = true): Promise<{ success: boolean; id?: string; error?: string }> {
+  if (!allowPosting) {
+    return { success: false, error: 'Shopkeeper posting is currently paused by platform admin.' };
+  }
+
   try {
+    // Check today's posts count for this shop
+    const qToday = query(collection(db, 'shopPosts'), where('shopId', '==', postData.shopId));
+    const existingSnap = await getDocs(qToday);
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayPostsCount = existingSnap.docs.filter((d) => {
+      const sec = d.data()?.createdAt?.seconds;
+      if (!sec) return false;
+      return new Date(sec * 1000).toISOString().slice(0, 10) === todayStr;
+    }).length;
+
+    if (todayPostsCount >= dailyLimit) {
+      return {
+        success: false,
+        error: `Daily post limit reached (${dailyLimit} post${dailyLimit > 1 ? 's' : ''} per day). Try again tomorrow.`,
+      };
+    }
+
     const docRef = await addDoc(collection(db, 'shopPosts'), {
-      ...postData,
-      status: 'approved', // auto approved or can be moderated by admin
+      ...stripUndefinedDeep(postData),
+      status: 'approved',
       createdAt: serverTimestamp(),
     });
     return { success: true, id: docRef.id };
@@ -301,9 +382,32 @@ export async function createShopPost(postData: {
   }
 }
 
-/**
- * Fetch shop posts
- */
+export async function updateShopPost(
+  postId: string,
+  updates: { title?: string; content?: string; images?: string[]; status?: 'approved' | 'pending' | 'rejected' }
+): Promise<boolean> {
+  try {
+    await updateDoc(doc(db, 'shopPosts', postId), {
+      ...stripUndefinedDeep(updates),
+      updatedAt: serverTimestamp(),
+    });
+    return true;
+  } catch (err) {
+    console.warn('Error updating shop post:', err);
+    return false;
+  }
+}
+
+export async function deleteShopPost(postId: string): Promise<boolean> {
+  try {
+    await deleteDoc(doc(db, 'shopPosts', postId));
+    return true;
+  } catch (err) {
+    console.warn('Error deleting shop post:', err);
+    return false;
+  }
+}
+
 export async function fetchShopPosts(shopId?: string): Promise<any[]> {
   try {
     let q;
@@ -313,23 +417,24 @@ export async function fetchShopPosts(shopId?: string): Promise<any[]> {
       q = query(collection(db, 'shopPosts'), orderBy('createdAt', 'desc'));
     }
     const snap = await getDocs(q);
-    return snap.docs.map((d) => {
-      const data = d.data();
-      return {
-        id: d.id,
-        ...data,
-        createdAt: data.createdAt ? new Date(data.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
-      };
-    });
+    return snap.docs
+      .map((d) => {
+        const data = d.data();
+        return {
+          id: d.id,
+          ...data,
+          createdAt: data.createdAt?.seconds
+            ? new Date(data.createdAt.seconds * 1000).toISOString()
+            : new Date().toISOString(),
+        };
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   } catch (err) {
     console.warn('Could not fetch shop posts:', err);
     return [];
   }
 }
 
-/**
- * Delete a shop from Firestore
- */
 export async function deleteShopFromDb(shopId: string): Promise<boolean> {
   try {
     await deleteDoc(doc(db, 'shops', shopId));
@@ -341,7 +446,7 @@ export async function deleteShopFromDb(shopId: string): Promise<boolean> {
 }
 
 /**
- * Follow or Unfollow Shop with atomic follower tracking & dynamic threshold badge unlocking
+ * Follow or Unfollow Shop safely even if seeded shop doc doesn't yet exist in Firestore.
  */
 export async function toggleFollowShop(
   shopId: string,
@@ -362,17 +467,15 @@ export async function toggleFollowShop(
   const shopRef = doc(db, 'shops', shopId);
   const shopSnap = await getDoc(shopRef);
 
-  let currentCount = shopSnap.exists() ? (shopSnap.data()?.followersCount || 0) : 0;
-  let currentBadges: string[] = shopSnap.exists() ? (shopSnap.data()?.unlockedBadges || []) : [];
+  const currentCount = shopSnap.exists() ? (shopSnap.data()?.followersCount || 0) : 0;
+  const currentBadges: string[] = shopSnap.exists() ? (shopSnap.data()?.unlockedBadges || []) : [];
 
   if (followSnap.exists()) {
-    // Unfollow
     await deleteDoc(followRef);
     const newCount = Math.max(0, currentCount - 1);
-    await updateDoc(shopRef, { followersCount: newCount });
+    await setDoc(shopRef, { followersCount: newCount }, { merge: true });
     return { isFollowing: false, newCount, newBadges: currentBadges };
   } else {
-    // Follow
     await setDoc(followRef, {
       userId,
       shopId,
@@ -380,8 +483,6 @@ export async function toggleFollowShop(
     });
 
     const newCount = currentCount + 1;
-
-    // Check newly unlocked badges based on thresholds
     const newlyUnlocked: string[] = [...currentBadges];
     for (const t of DEFAULT_FOLLOWER_THRESHOLDS) {
       if (newCount >= t.count && !newlyUnlocked.includes(t.badge)) {
@@ -389,18 +490,19 @@ export async function toggleFollowShop(
       }
     }
 
-    await updateDoc(shopRef, {
-      followersCount: newCount,
-      unlockedBadges: newlyUnlocked,
-    });
+    await setDoc(
+      shopRef,
+      {
+        followersCount: newCount,
+        unlockedBadges: newlyUnlocked,
+      },
+      { merge: true }
+    );
 
     return { isFollowing: true, newCount, newBadges: newlyUnlocked };
   }
 }
 
-/**
- * Check if user follows this shop
- */
 export async function checkIsFollowing(shopId: string, userId: string): Promise<boolean> {
   if (!userId) return false;
   try {
@@ -412,16 +514,17 @@ export async function checkIsFollowing(shopId: string, userId: string): Promise<
   }
 }
 
-/**
- * Update general shop information (timings, description, phones, status)
- */
 export async function updateShopInfo(shopId: string, updates: Partial<Shop>): Promise<boolean> {
   try {
     const shopRef = doc(db, 'shops', shopId);
-    await updateDoc(shopRef, {
-      ...updates,
-      updatedAt: serverTimestamp(),
-    });
+    await setDoc(
+      shopRef,
+      {
+        ...stripUndefinedDeep(updates),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
     return true;
   } catch (err) {
     console.warn('Error updating shop:', err);
@@ -429,16 +532,17 @@ export async function updateShopInfo(shopId: string, updates: Partial<Shop>): Pr
   }
 }
 
-/**
- * Update shop product catalog / inventory
- */
 export async function updateShopCatalog(shopId: string, catalog: any[]): Promise<boolean> {
   try {
     const shopRef = doc(db, 'shops', shopId);
-    await updateDoc(shopRef, {
-      catalog,
-      updatedAt: serverTimestamp(),
-    });
+    await setDoc(
+      shopRef,
+      {
+        catalog: stripUndefinedDeep(catalog),
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
     return true;
   } catch (err) {
     console.warn('Error updating catalog:', err);

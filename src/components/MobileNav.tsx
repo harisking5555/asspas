@@ -18,6 +18,8 @@ export const MobileNav: React.FC<MobileNavProps> = ({
   onOpenAddShop,
   user,
 }) => {
+  const favTotal = (user.favorites?.length || 0) + (user.favoriteProducts?.length || 0);
+
   return (
     <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 px-2 py-1 shadow-lg flex items-center justify-around text-[10px]">
       <button
@@ -40,7 +42,6 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         <span>Shops</span>
       </button>
 
-      {/* Center Action: Add Shop */}
       <button
         onClick={onOpenAddShop}
         className="flex flex-col items-center -mt-3 bg-emerald-600 text-white rounded-full p-2.5 shadow-md border-2 border-white active:scale-95 transition-transform cursor-pointer"
@@ -49,7 +50,6 @@ export const MobileNav: React.FC<MobileNavProps> = ({
         <PlusCircle className="w-5 h-5" strokeWidth={2} />
       </button>
 
-      {/* Favorites Tab on Mobile */}
       <button
         onClick={() => onSelectTab('favorites')}
         className={`flex flex-col items-center py-1 transition-colors cursor-pointer ${
@@ -58,16 +58,15 @@ export const MobileNav: React.FC<MobileNavProps> = ({
       >
         <div className="relative">
           <Heart className="w-4.5 h-4.5 mb-0.5 text-emerald-600" strokeWidth={1.75} />
-          {user.favorites && user.favorites.length > 0 && (
+          {favTotal > 0 && (
             <span className="absolute -top-1 -right-2 bg-rose-500 text-white text-[8px] font-bold px-1 rounded-full tabular-nums">
-              {user.favorites.length}
+              {favTotal}
             </span>
           )}
         </div>
         <span>Favorites</span>
       </button>
 
-      {/* Profile & Rewards */}
       <button
         onClick={() => onSelectTab('profile')}
         className={`flex flex-col items-center py-1 transition-colors cursor-pointer ${

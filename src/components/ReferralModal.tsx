@@ -30,10 +30,18 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
 }) => {
   const [copied, setCopied] = useState(false);
   const [redeemedReward, setRedeemedReward] = useState<string | null>(null);
+  const [noticeMessage, setNoticeMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
   const referralUrl = getReferralLink(user.referralCode);
+
+  const showNotice = (msg: string) => {
+    setNoticeMessage(msg);
+    setTimeout(() => {
+      setNoticeMessage((prev) => (prev === msg ? null : prev));
+    }, 3500);
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralUrl);
@@ -42,24 +50,13 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
   };
 
   const handleWhatsAppShare = () => {
-    const text = `Assalam-o-Alaikum! Join asspas.store to discover verified local shops in Pakistan, find nearby services, and get authentic Elegancia Mineral Water! 🎁 Register via my referral link to get 50 Free Welcome Points: ${referralUrl}`;
+    const text = `Assalam-o-Alaikum! Join asspas.store to discover verified local shops in Pakistan, find nearby services, and get authentic Elegancia Mineral Water! Register via my referral link to get 50 Free Welcome Points: ${referralUrl}`;
     window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
-  };
-
-  const handleSimulateReferral = () => {
-    try {
-      confetti({
-        particleCount: 80,
-        spread: 70,
-        origin: { y: 0.6 },
-      });
-    } catch {}
-    onAddPoints(50, 'Friend joined using your referral link');
   };
 
   const handleRedeem = (cost: number, rewardName: string) => {
     if (user.points < cost) {
-      alert(`You need ${cost} points for this reward. Share your referral link to earn more points!`);
+      showNotice(`You need ${cost} PTS for "${rewardName}". Invite members via your referral link to earn more PTS!`);
       return;
     }
     try {
@@ -116,11 +113,17 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
 
         {/* Content Body */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-5 text-xs text-slate-700">
+          {noticeMessage && (
+            <div className="bg-amber-50 text-amber-900 p-3 rounded-xl border border-amber-200 font-semibold">
+              {noticeMessage}
+            </div>
+          )}
+
           {redeemedReward && (
             <div className="bg-emerald-100 text-emerald-900 p-3 rounded-xl border border-emerald-300 font-semibold flex items-center gap-2">
               <Check className="w-4 h-4 text-emerald-700 shrink-0" />
               <span>
-                Awesome! You successfully claimed: <strong>{redeemedReward}</strong>. The code has been sent to your WhatsApp.
+                Awesome! You successfully claimed: <strong>{redeemedReward}</strong>.
               </span>
             </div>
           )}
@@ -172,7 +175,7 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                 type="button"
                 onClick={() => {
                   navigator.clipboard.writeText(referralUrl);
-                  alert('Referral link copied! You can now paste your asspas.store link in your Instagram story sticker or bio.');
+                  showNotice('Referral link copied! Paste it into your Instagram story sticker or bio.');
                 }}
                 className="py-2 px-3 bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-2xs transition-transform active:scale-95 cursor-pointer text-xs"
               >
@@ -190,17 +193,6 @@ export const ReferralModal: React.FC<ReferralModalProps> = ({
                 <span>X / Twitter</span>
               </button>
             </div>
-          </div>
-
-          <div className="pt-1">
-            <button
-              onClick={handleSimulateReferral}
-              className="w-full py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer text-xs"
-              title="Test the points counter"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
-              <span>Simulate Referral (+50 Pts)</span>
-            </button>
           </div>
 
           {/* Stats Bar */}

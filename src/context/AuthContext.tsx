@@ -1,32 +1,31 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  signInWithPopup, 
+import {
+  signInWithPopup,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   updateProfile,
-  signOut as fbSignOut, 
+  signOut as fbSignOut,
   onAuthStateChanged,
-  User as FirebaseUser
+  User as FirebaseUser,
 } from 'firebase/auth';
-import { 
-  doc, 
-  getDoc, 
-  setDoc, 
-  updateDoc, 
+import {
+  doc,
+  getDoc,
+  setDoc,
+  updateDoc,
   serverTimestamp,
   collection,
-  query,
-  where,
-  getDocs,
-  addDoc
+  addDoc,
 } from 'firebase/firestore';
 import { auth, googleProvider, db } from '../lib/firebase';
 import { UserProfile } from '../types';
+import {
+  calculateStarLevel,
+  processMatrixReferralLinkage,
+  fetchUserReferralTree,
+} from '../services/referralService';
 
-// Hardcoded Designated Admin UIDs from User
-export const KNOWN_ADMIN_UIDS = [
-  'mbDWdPHMyIM7QXRMaZa1igMjBWq2',
-];
+export const KNOWN_ADMIN_UIDS = ['mbDWdPHMyIM7QXRMaZa1igMjBWq2'];
 
 export interface GoogleAuthResult {
   success: boolean;
@@ -36,29 +35,31 @@ export interface GoogleAuthResult {
   currentDomain?: string;
 }
 
+export interface ExtraAuthDetails {
+  phone?: string;
+  address?: string;
+  province?: string;
+  city?: string;
+  area?: string;
+  photoURL?: string;
+}
+
 interface AuthContextType {
   currentUser: FirebaseUser | null;
   userProfile: UserProfile | null;
   loading: boolean;
   isAdmin: boolean;
-  signInWithGoogle: (referralCodeInput?: string) => Promise<GoogleAuthResult>;
+  signInWithGoogle: (referralCodeInput?: string, extraDetails?: ExtraAuthDetails) => Promise<GoogleAuthResult>;
   signInWithEmail: (
     email: string,
     pass: string,
     isSignUp?: boolean,
     name?: string,
     referralCodeInput?: string,
-    extraDetails?: {
-      phone?: string;
-      address?: string;
-      province?: string;
-      city?: string;
-      area?: string;
-      photoURL?: string;
-    }
+    extraDetails?: ExtraAuthDetails
   ) => Promise<{ success: boolean; isNewUser?: boolean; error?: string }>;
   signInWithAdminCredentials: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
-  signInAsTestMember: (email?: string, name?: string, asAdmin?: boolean) => void;
+  attachSponsorReferralCode: (codeOrLink: string) => Promise<{ success: boolean; message: string }>;
   updateUserProfile: (updates: Partial<UserProfile>) => Promise<void>;
   logout: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
@@ -68,7 +69,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Generate clean brand referral code: e.g. ASSPAS-8492
 export function generateReferralCode(): string {
   const randNum = Math.floor(10000 + Math.random() * 90000);
   return `ASSPAS-${randNum}`;
@@ -80,14 +80,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState<boolean>(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
-  // Check admin privileges
   const checkIsAdmin = async (uid: string, userSnapData?: any): Promise<boolean> => {
-    if (KNOWN_ADMIN_UIDS.includes(uid)) {
-      return true;
-    }
-    if (userSnapData?.role === 'admin') {
-      return true;
-    }
+    if (KNOWN_ADMIN_UIDS.includes(uid)) return true;
+    if (userSnapData?.role === 'admin') return true;
     try {
       const adminDocRef = doc(db, 'admins', uid);
       const adminSnap = await getDoc(adminDocRef);
@@ -97,7 +92,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Load user profile from Firestore
   const fetchUserProfile = async (uid: string, fbUser?: FirebaseUser | null): Promise<UserProfile | null> => {
     try {
       const userDocRef = doc(db, 'users', uid);
@@ -108,6 +102,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsAdmin(userIsAdmin);
 
       if (userSnap.exists() && userSnapData) {
+        let resolvedStar = userSnapData.starLevel ?? 0;
+        try {
+          if (userSnapData.referredCount >= 3 && resolvedStar === 0) {
+            const tree = await fetchUserReferralTree(uid, userSnapData.referralCode || '');
+            resolvedStar = calculateStarLevel(
+              tree.children.length,
+              tree.children.map((c) => c.starLevel || 0)
+            );
+          }
+        } catch {}
+
+        // Track lastActive & lastLogin cleanly
+        try {
+          await updateDoc(userDocRef, {
+            lastActive: new Date().toISOString(),
+          });
+        } catch {}
+
         return {
           id: uid,
           name: userSnapData.name || fbUser?.displayName || 'Member',
@@ -120,20 +132,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           area: userSnapData.area || '',
           role: userIsAdmin ? 'admin' : (userSnapData.role || 'user'),
           status: userSnapData.status || 'active',
-          lastActive: userSnapData.lastActive || new Date().toISOString(),
+          lastActive: new Date().toISOString(),
+          lastLogin: userSnapData.lastLogin || new Date().toISOString(),
+          onlineMinutes: userSnapData.onlineMinutes ?? 0,
+          shopsVisited: userSnapData.shopsVisited ?? 0,
           points: userSnapData.points ?? 0,
           referralCode: userSnapData.referralCode || generateReferralCode(),
           referredBy: userSnapData.referredBy || null,
           hasReferralPrivileges: userSnapData.hasReferralPrivileges ?? false,
           matrixParentId: userSnapData.matrixParentId || null,
           matrixLevel: userSnapData.matrixLevel || 1,
-          starLevel: userSnapData.starLevel || (userSnapData.referredCount >= 3 ? Math.min(10, Math.floor(userSnapData.referredCount / 3)) : 0),
+          starLevel: resolvedStar,
           referredCount: userSnapData.referredCount ?? 0,
           isLoggedIn: true,
           favorites: userSnapData.favorites || [],
           favoriteProducts: userSnapData.favoriteProducts || [],
           shopsCount: userSnapData.shopsCount ?? 0,
-          createdAt: userSnapData.createdAt ? new Date(userSnapData.createdAt.seconds * 1000).toISOString() : new Date().toISOString(),
+          createdAt: userSnapData.createdAt?.seconds
+            ? new Date(userSnapData.createdAt.seconds * 1000).toISOString()
+            : new Date().toISOString(),
         };
       }
       return null;
@@ -153,7 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           const userIsAdmin = await checkIsAdmin(fbUser.uid);
           setIsAdmin(userIsAdmin);
-          const defaultProfile: UserProfile = {
+          setUserProfile({
             id: fbUser.uid,
             name: fbUser.displayName || 'Member',
             email: fbUser.email || '',
@@ -166,17 +183,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             hasReferralPrivileges: false,
             matrixParentId: null,
             matrixLevel: 1,
+            starLevel: 0,
             referredCount: 0,
             isLoggedIn: true,
             favorites: [],
+            favoriteProducts: [],
             shopsCount: 0,
-          };
-          setUserProfile(defaultProfile);
+          });
         }
       } else {
-        // Keep existing test user profile if signed in as test member
-        setUserProfile((prev) => (prev && prev.id.startsWith('member-') ? prev : null));
-        setIsAdmin((prev) => (userProfile?.id === 'mbDWdPHMyIM7QXRMaZa1igMjBWq2' ? true : prev));
+        setUserProfile(null);
+        setIsAdmin(false);
       }
       setLoading(false);
     });
@@ -191,9 +208,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  /**
-   * Admin Email/Password Sign-In specifically for /admin portal
-   */
   const signInWithAdminCredentials = async (
     email: string,
     pass: string
@@ -204,121 +218,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const isAdm = await checkIsAdmin(cred.user.uid);
       setIsAdmin(isAdm);
       setLoading(false);
+      if (!isAdm) {
+        await fbSignOut(auth);
+        return { success: false, error: 'This account does not have Administrator permissions.' };
+      }
       return { success: true };
     } catch (err: any) {
       setLoading(false);
-      const msg = err?.message || 'Invalid admin credentials';
-      return { success: false, error: msg };
+      return { success: false, error: err?.message || 'Invalid admin credentials' };
     }
   };
 
-  /**
-   * Universal Referral Link & Reward Attribution Processor
-   * Resolves inviter by referral code OR by user UID, awards 50 PTS to both,
-   * updates 3x3 matrix tree, and logs to immutable pointsLedger.
-   */
-  const processReferralReward = async (
-    inviteeUid: string,
-    inviteeName: string,
-    referredByInput?: string
-  ): Promise<{ validInviterUid: string | null; codeUsed: string | null; hasPrivileges: boolean }> => {
-    let rawRef = (referredByInput || '').trim();
-    if (!rawRef && typeof window !== 'undefined') {
-      rawRef = (localStorage.getItem('asspas_referred_by') || sessionStorage.getItem('asspas_referred_by') || '').trim();
-    }
-
-    if (!rawRef) {
-      return { validInviterUid: null, codeUsed: null, hasPrivileges: false };
-    }
-
-    try {
-      let inviterDocSnap: any = null;
-      let matchedCode = rawRef;
-
-      // 1. Try finding by referralCode (case-insensitive)
-      const q = query(collection(db, 'users'), where('referralCode', '==', rawRef.toUpperCase()));
-      const snap = await getDocs(q);
-      if (!snap.empty && snap.docs[0].id !== inviteeUid) {
-        inviterDocSnap = snap.docs[0];
-        matchedCode = inviterDocSnap.data()?.referralCode || rawRef.toUpperCase();
-      } else {
-        // 2. Try finding by direct user UID document
-        const uDoc = await getDoc(doc(db, 'users', rawRef));
-        if (uDoc.exists() && uDoc.id !== inviteeUid) {
-          inviterDocSnap = uDoc;
-          matchedCode = uDoc.data()?.referralCode || rawRef;
-        }
-      }
-
-      if (inviterDocSnap) {
-        const inviterUid = inviterDocSnap.id;
-        const inviterData = inviterDocSnap.data();
-        const currentPts = inviterData?.points || 0;
-        const currentCount = inviterData?.referredCount || 0;
-
-        // Credit 50 points to inviter
-        await updateDoc(doc(db, 'users', inviterUid), {
-          points: currentPts + 50,
-          referredCount: currentCount + 1,
-          updatedAt: serverTimestamp(),
-        });
-
-        // Add to pointsLedger for inviter
-        await addDoc(collection(db, 'pointsLedger'), {
-          userId: inviterUid,
-          eventType: 'referral_reward',
-          points: 50,
-          balanceAfter: currentPts + 50,
-          referenceId: inviteeUid,
-          description: `Referral reward (+50 PTS) for inviting ${inviteeName} via referral link`,
-          createdAt: serverTimestamp(),
-        });
-
-        // Add to referrals tracking collection
-        await addDoc(collection(db, 'referrals'), {
-          inviterId: inviterUid,
-          inviteeId: inviteeUid,
-          inviteeName: inviteeName || 'New Member',
-          codeUsed: matchedCode,
-          matrixSlot: (currentCount % 3) + 1,
-          level: 1,
-          status: 'active',
-          createdAt: serverTimestamp(),
-        });
-
-        // Clean up stored referral
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('asspas_referred_by');
-          sessionStorage.removeItem('asspas_referred_by');
-        }
-
-        return { validInviterUid: inviterUid, codeUsed: matchedCode, hasPrivileges: true };
-      }
-    } catch (err) {
-      console.warn('Error processing referral reward:', err);
-    }
-
-    return { validInviterUid: null, codeUsed: null, hasPrivileges: false };
-  };
-
-  /**
-   * Sign In / Sign Up with Email and Password
-   * Bypasses Google OAuth domain restriction completely
-   */
   const signInWithEmail = async (
     email: string,
     pass: string,
     isSignUp: boolean = false,
     name?: string,
     referralCodeInput?: string,
-    extraDetails?: {
-      phone?: string;
-      address?: string;
-      province?: string;
-      city?: string;
-      area?: string;
-      photoURL?: string;
-    }
+    extraDetails?: ExtraAuthDetails
   ): Promise<{ success: boolean; isNewUser?: boolean; error?: string }> => {
     try {
       setLoading(true);
@@ -339,22 +256,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fbUser = cred.user;
       }
 
-      // Check / Create Firestore User Document
       const userDocRef = doc(db, 'users', fbUser.uid);
       const userSnap = await getDoc(userDocRef);
 
       if (!userSnap.exists() || isNew) {
-        const { validInviterUid, codeUsed, hasPrivileges } = await processReferralReward(
+        const referralResult = await processMatrixReferralLinkage(
           fbUser.uid,
           name?.trim() || fbUser.displayName || 'Member',
-          referralCodeInput
+          referralCodeInput,
+          50
         );
 
-        const initialPoints = hasPrivileges ? 50 : 0;
+        const initialPoints = referralResult.hasPrivileges ? 50 : 0;
         const myReferralCode = generateReferralCode();
         const userIsAdmin = await checkIsAdmin(fbUser.uid);
         setIsAdmin(userIsAdmin);
 
+        const nowIso = new Date().toISOString();
         const newProfileData = {
           id: fbUser.uid,
           name: name?.trim() || fbUser.displayName || 'Member',
@@ -362,18 +280,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           photoURL: extraDetails?.photoURL || '',
           phone: extraDetails?.phone || '',
           address: extraDetails?.address || '',
-          province: extraDetails?.province || '',
+          province: extraDetails?.province || 'Khyber Pakhtunkhwa (KP)',
           city: extraDetails?.city || 'Peshawar',
           area: extraDetails?.area || '',
           role: userIsAdmin ? 'admin' : 'user',
           status: 'active',
-          lastActive: new Date().toISOString(),
+          lastActive: nowIso,
+          lastLogin: nowIso,
+          onlineMinutes: 0,
+          shopsVisited: 0,
           points: initialPoints,
           referralCode: myReferralCode,
-          referredBy: validInviterUid ? codeUsed : null,
-          hasReferralPrivileges: hasPrivileges,
-          matrixParentId: validInviterUid,
-          matrixLevel: 1,
+          referredBy: referralResult.validSponsorUid ? referralResult.codeUsed : null,
+          hasReferralPrivileges: referralResult.hasPrivileges,
+          matrixParentId: referralResult.matrixParentId,
+          matrixLevel: referralResult.matrixLevel,
           starLevel: 0,
           referredCount: 0,
           shopsCount: 0,
@@ -385,51 +306,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         await setDoc(userDocRef, newProfileData);
 
-        if (hasPrivileges) {
+        if (referralResult.hasPrivileges) {
           try {
             await addDoc(collection(db, 'pointsLedger'), {
               userId: fbUser.uid,
               eventType: 'referral_signup',
               points: 50,
               balanceAfter: 50,
-              referenceId: codeUsed,
+              referenceId: referralResult.codeUsed,
               description: `Welcome bonus (+50 PTS) for joining via referral link`,
               createdAt: serverTimestamp(),
             });
-          } catch (err) {
-            console.warn('Error recording invitee ledger:', err);
-          }
+          } catch {}
         }
 
-        const freshProfile: UserProfile = {
-          id: fbUser.uid,
-          name: name?.trim() || fbUser.displayName || 'Member',
-          email: fbUser.email || '',
-          photoURL: extraDetails?.photoURL || '',
-          phone: extraDetails?.phone || '',
-          address: extraDetails?.address || '',
-          province: extraDetails?.province || '',
-          city: extraDetails?.city || 'Peshawar',
-          area: extraDetails?.area || '',
+        setUserProfile({
+          ...newProfileData,
           role: userIsAdmin ? 'admin' : 'user',
           status: 'active',
-          lastActive: new Date().toISOString(),
-          points: initialPoints,
-          referralCode: myReferralCode,
-          referredBy: validInviterUid ? codeUsed : null,
-          hasReferralPrivileges: hasPrivileges,
-          matrixParentId: validInviterUid,
-          matrixLevel: 1,
-          starLevel: 0,
-          referredCount: 0,
           isLoggedIn: true,
-          favorites: [],
-          favoriteProducts: [],
-          shopsCount: 0,
-        };
-
-        setUserProfile(freshProfile);
+          createdAt: nowIso,
+        });
       } else {
+        await updateDoc(userDocRef, {
+          lastLogin: new Date().toISOString(),
+          lastActive: new Date().toISOString(),
+        }).catch(() => {});
         const existingProfile = await fetchUserProfile(fbUser.uid, fbUser);
         if (existingProfile) setUserProfile(existingProfile);
       }
@@ -440,8 +342,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
       let errorMsg = err?.message || 'Email authentication failed';
       if (err?.code === 'auth/email-already-in-use') {
-        errorMsg = 'This email is already registered. Please sign in instead.';
-      } else if (err?.code === 'auth/wrong-password' || err?.code === 'auth/user-not-found' || err?.code === 'auth/invalid-credential') {
+        errorMsg = 'This email is already registered. Please sign in using Email Login.';
+      } else if (
+        err?.code === 'auth/wrong-password' ||
+        err?.code === 'auth/user-not-found' ||
+        err?.code === 'auth/invalid-credential'
+      ) {
         errorMsg = 'Invalid email or password. Please verify your credentials.';
       } else if (err?.code === 'auth/weak-password') {
         errorMsg = 'Password should be at least 6 characters.';
@@ -450,92 +356,92 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  /**
-   * Public Google Sign-In with 3x3 referral reward
-   */
   const signInWithGoogle = async (
-    referralCodeInput?: string
+    referralCodeInput?: string,
+    extraDetails?: ExtraAuthDetails
   ): Promise<GoogleAuthResult> => {
     try {
       setLoading(true);
       const cred = await signInWithPopup(auth, googleProvider);
       const fbUser = cred.user;
-      
+
       const userDocRef = doc(db, 'users', fbUser.uid);
       const userSnap = await getDoc(userDocRef);
       const isNew = !userSnap.exists();
 
       if (isNew) {
-        const { validInviterUid, codeUsed, hasPrivileges } = await processReferralReward(
+        const referralResult = await processMatrixReferralLinkage(
           fbUser.uid,
           fbUser.displayName || 'Member',
-          referralCodeInput
+          referralCodeInput,
+          50
         );
 
-        const initialPoints = hasPrivileges ? 50 : 0;
+        const initialPoints = referralResult.hasPrivileges ? 50 : 0;
         const myReferralCode = generateReferralCode();
         const userIsAdmin = await checkIsAdmin(fbUser.uid);
         setIsAdmin(userIsAdmin);
 
+        const nowIso = new Date().toISOString();
         const newProfileData = {
           id: fbUser.uid,
           name: fbUser.displayName || 'Member',
           email: fbUser.email || '',
-          photoURL: fbUser.photoURL || '',
-          phone: '',
+          photoURL: extraDetails?.photoURL || fbUser.photoURL || '',
+          phone: extraDetails?.phone || '',
+          address: extraDetails?.address || '',
+          province: extraDetails?.province || 'Khyber Pakhtunkhwa (KP)',
+          city: extraDetails?.city || 'Peshawar',
+          area: extraDetails?.area || '',
           role: userIsAdmin ? 'admin' : 'user',
+          status: 'active',
+          lastActive: nowIso,
+          lastLogin: nowIso,
+          onlineMinutes: 0,
+          shopsVisited: 0,
           points: initialPoints,
           referralCode: myReferralCode,
-          referredBy: validInviterUid ? codeUsed : null,
-          hasReferralPrivileges: hasPrivileges,
-          matrixParentId: validInviterUid,
-          matrixLevel: 1,
+          referredBy: referralResult.validSponsorUid ? referralResult.codeUsed : null,
+          hasReferralPrivileges: referralResult.hasPrivileges,
+          matrixParentId: referralResult.matrixParentId,
+          matrixLevel: referralResult.matrixLevel,
+          starLevel: 0,
           referredCount: 0,
           shopsCount: 0,
           favorites: [],
+          favoriteProducts: [],
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
 
         await setDoc(userDocRef, newProfileData);
 
-        if (hasPrivileges) {
+        if (referralResult.hasPrivileges) {
           try {
             await addDoc(collection(db, 'pointsLedger'), {
               userId: fbUser.uid,
               eventType: 'referral_signup',
               points: 50,
               balanceAfter: 50,
-              referenceId: codeUsed,
+              referenceId: referralResult.codeUsed,
               description: `Welcome bonus (+50 PTS) for joining via referral link`,
               createdAt: serverTimestamp(),
             });
-          } catch (err) {
-            console.warn('Error recording Google invitee ledger:', err);
-          }
+          } catch {}
         }
 
-        const freshProfile: UserProfile = {
-          id: fbUser.uid,
-          name: fbUser.displayName || 'Member',
-          email: fbUser.email || '',
-          photoURL: fbUser.photoURL || '',
-          phone: '',
+        setUserProfile({
+          ...newProfileData,
           role: userIsAdmin ? 'admin' : 'user',
-          points: initialPoints,
-          referralCode: myReferralCode,
-          referredBy: validInviterUid ? codeUsed : null,
-          hasReferralPrivileges: hasPrivileges,
-          matrixParentId: validInviterUid,
-          matrixLevel: 1,
-          referredCount: 0,
+          status: 'active',
           isLoggedIn: true,
-          favorites: [],
-          shopsCount: 0,
-        };
-
-        setUserProfile(freshProfile);
+          createdAt: nowIso,
+        });
       } else {
+        await updateDoc(userDocRef, {
+          lastLogin: new Date().toISOString(),
+          lastActive: new Date().toISOString(),
+        }).catch(() => {});
         const existingProfile = await fetchUserProfile(fbUser.uid, fbUser);
         if (existingProfile) setUserProfile(existingProfile);
       }
@@ -544,12 +450,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return { success: true, isNewUser: isNew };
     } catch (err: any) {
       setLoading(false);
-      const isUnauthDomain = err?.code === 'auth/unauthorized-domain' || err?.message?.includes('unauthorized-domain');
+      const isUnauthDomain =
+        err?.code === 'auth/unauthorized-domain' || err?.message?.includes('unauthorized-domain');
       return {
         success: false,
         isNewUser: false,
-        error: isUnauthDomain 
-          ? 'Firebase Google OAuth domain not authorized. Please use Email/Password login or authorize this domain in Firebase Console.'
+        error: isUnauthDomain
+          ? 'Google OAuth domain is not yet authorized in Firebase Console. Please use Email/Password sign in instead.'
           : err?.message || 'Google authentication failed',
         errorCode: err?.code,
         currentDomain: typeof window !== 'undefined' ? window.location.hostname : '',
@@ -558,33 +465,69 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
-   * Fast Demo / Preview Test Member Sign-In
-   * Allows full interactive testing of shop additions, favorites, and admin console
-   * even before domain is authorized in Firebase Console!
+   * Allows a logged-in user who registered without a sponsor code to attach one once and join the 3x3 matrix.
    */
-  const signInAsTestMember = (email?: string, name?: string, asAdmin?: boolean) => {
-    const testUid = asAdmin ? 'mbDWdPHMyIM7QXRMaZa1igMjBWq2' : `member-${Date.now().toString(36)}`;
-    const testProfile: UserProfile = {
-      id: testUid,
-      name: name || (asAdmin ? 'Super Admin' : 'Verified Member'),
-      email: email || (asAdmin ? 'admin@asspas.store' : 'member@asspas.store'),
-      photoURL: '',
-      phone: '0308-5599766',
-      role: asAdmin ? 'admin' : 'user',
-      points: 100,
-      referralCode: generateReferralCode(),
-      referredBy: 'ASSPAS-7892',
-      hasReferralPrivileges: true,
-      matrixParentId: null,
-      matrixLevel: 1,
-      referredCount: 1,
-      isLoggedIn: true,
-      favorites: [],
-      shopsCount: 0,
-      createdAt: new Date().toISOString(),
+  const attachSponsorReferralCode = async (
+    codeOrLink: string
+  ): Promise<{ success: boolean; message: string }> => {
+    if (!currentUser || !userProfile) {
+      return { success: false, message: 'Please log in first.' };
+    }
+    if (userProfile.referredBy) {
+      return { success: false, message: `You are already linked to sponsor code ${userProfile.referredBy}.` };
+    }
+
+    const res = await processMatrixReferralLinkage(
+      currentUser.uid,
+      userProfile.name,
+      codeOrLink,
+      50
+    );
+
+    if (!res.validSponsorUid || !res.codeUsed) {
+      return { success: false, message: 'Sponsor code not found or cannot refer yourself. Please verify and try again.' };
+    }
+
+    const updatedPoints = (userProfile.points || 0) + 50;
+    try {
+      await updateDoc(doc(db, 'users', currentUser.uid), {
+        referredBy: res.codeUsed,
+        matrixParentId: res.matrixParentId,
+        matrixLevel: res.matrixLevel,
+        hasReferralPrivileges: true,
+        points: updatedPoints,
+        updatedAt: serverTimestamp(),
+      });
+      await addDoc(collection(db, 'pointsLedger'), {
+        userId: currentUser.uid,
+        eventType: 'referral_signup',
+        points: 50,
+        balanceAfter: updatedPoints,
+        referenceId: res.codeUsed,
+        description: `Late Sponsor Bind Bonus (+50 PTS) linked to ${res.codeUsed}`,
+        createdAt: serverTimestamp(),
+      });
+    } catch (err) {
+      console.warn('Error updating user sponsor fields:', err);
+    }
+
+    setUserProfile((prev) =>
+      prev
+        ? {
+            ...prev,
+            referredBy: res.codeUsed,
+            matrixParentId: res.matrixParentId,
+            matrixLevel: res.matrixLevel,
+            hasReferralPrivileges: true,
+            points: updatedPoints,
+          }
+        : null
+    );
+
+    return {
+      success: true,
+      message: `Linked to ${res.codeUsed}! +50 PTS credited & 3×3 Matrix privileges unlocked.`,
     };
-    setUserProfile(testProfile);
-    setIsAdmin(asAdmin ?? false);
   };
 
   const updateUserProfile = async (updates: Partial<UserProfile>) => {
@@ -605,10 +548,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async () => {
     try {
       await fbSignOut(auth);
-      setUserProfile(null);
-      setIsAdmin(false);
     } catch (err) {
       console.error('Logout error:', err);
+    } finally {
       setUserProfile(null);
       setIsAdmin(false);
     }
@@ -639,9 +581,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!userProfile) return;
     const currentFavs = userProfile.favoriteProducts || [];
     const isFav = currentFavs.includes(productId);
-    const newFavs = isFav
-      ? currentFavs.filter((id) => id !== productId)
-      : [...currentFavs, productId];
+    const newFavs = isFav ? currentFavs.filter((id) => id !== productId) : [...currentFavs, productId];
 
     setUserProfile((prev) => (prev ? { ...prev, favoriteProducts: newFavs } : null));
 
@@ -667,7 +607,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signInWithGoogle,
         signInWithEmail,
         signInWithAdminCredentials,
-        signInAsTestMember,
+        attachSponsorReferralCode,
         updateUserProfile,
         logout,
         refreshUserProfile,

@@ -40,7 +40,7 @@ export const EleganciaModal: React.FC<EleganciaModalProps> = ({
         {/* Banner with Pure Water Image */}
         <div className="relative h-48 sm:h-56 bg-slate-900 shrink-0">
           <img
-            src="/src/assets/images/product_elegancia_water_1793110437317.jpg"
+            src="/images/product_elegancia_water_1793110437317.jpg"
             alt="Elegancia Mineral Water"
             className="w-full h-full object-cover opacity-85"
             referrerPolicy="no-referrer"

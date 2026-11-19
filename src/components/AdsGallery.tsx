@@ -62,7 +62,7 @@ export const AdsGallery: React.FC<AdsGalleryProps> = ({
             <div className="relative w-full h-full flex items-center justify-center bg-black">
               <video
                 src={currentAd.mediaUrl}
-                poster="/src/assets/images/product_elegancia_water_1793110437317.jpg"
+                poster="/images/product_elegancia_water_1793110437317.jpg"
                 controls
                 className="w-full h-full object-cover"
               />

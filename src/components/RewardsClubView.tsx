@@ -63,6 +63,8 @@ export const RewardsClubView: React.FC<RewardsClubViewProps> = ({
     }
   }, [activeProfile?.id, activeProfile?.referralCode]);
 
+  const [toastNotice, setToastNotice] = useState<string | null>(null);
+
   const handleCopy = () => {
     navigator.clipboard.writeText(referralUrl);
     setCopied(true);
@@ -85,12 +87,14 @@ export const RewardsClubView: React.FC<RewardsClubViewProps> = ({
 
   const handleInstagramShare = () => {
     navigator.clipboard.writeText(referralUrl);
-    alert('Link copied to clipboard! You can now paste your asspas.store referral link in your Instagram Bio or Story sticker.');
+    setToastNotice('Referral link copied! Paste it into your Instagram Story sticker or Bio.');
+    setTimeout(() => setToastNotice(null), 4000);
   };
 
   const handleRedeem = (cost: number, title: string) => {
     if (activeProfile.points < cost) {
-      alert(`You have ${activeProfile.points} points. You need ${cost} points for this perk. Share your referral link to earn 50 points per registration & 50 points per shop created!`);
+      setToastNotice(`You currently have ${activeProfile.points} PTS. Need ${cost} PTS for "${title}". Invite neighbors to earn +50 PTS each!`);
+      setTimeout(() => setToastNotice(null), 4500);
       return;
     }
     try {
@@ -105,21 +109,17 @@ export const RewardsClubView: React.FC<RewardsClubViewProps> = ({
     setTimeout(() => setClaimSuccess(null), 4000);
   };
 
-  // Calculate Star Level:
-  // 3 children => 1 Star
-  // when 3 children each have 3 children => 2 Star
-  // up to 10 Stars
   const directCount = activeProfile.referredCount || 0;
-  let calculatedStarLevel = 0;
-  if (directCount >= 39) calculatedStarLevel = 4;
-  else if (directCount >= 12) calculatedStarLevel = 3;
-  else if (directCount >= 6) calculatedStarLevel = 2;
-  else if (directCount >= 3) calculatedStarLevel = 1;
-
-  const currentStarLevel = activeProfile.starLevel || calculatedStarLevel;
+  const currentStarLevel = activeProfile.starLevel ?? (referralTree && referralTree.children.length >= 3 ? 1 : 0);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 space-y-8 font-['Poppins']">
+      {toastNotice && (
+        <div className="bg-amber-50 border border-amber-300 text-amber-950 text-xs font-bold p-3.5 rounded-2xl flex items-center justify-between gap-2 shadow-xs">
+          <span>{toastNotice}</span>
+          <button onClick={() => setToastNotice(null)} className="text-amber-700 hover:text-amber-950 cursor-pointer font-black">✕</button>
+        </div>
+      )}
       {/* Hero Points Card */}
       <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-emerald-950 via-emerald-900 to-teal-950 text-white p-6 sm:p-10 shadow-xl border border-emerald-800/60">
         <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">

@@ -48,7 +48,7 @@ export const ShopCard: React.FC<ShopCardProps> = ({
     window.location.href = `tel:${phone}`;
   };
 
-  const displayImage = shop.imageUrl || shop.image || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=500';
+  const displayImage = shop.imageUrl || shop.image || '/images/store_imtiaz_grocery_1793110437258.jpg';
 
   return (
     <div
@@ -69,7 +69,10 @@ export const ShopCard: React.FC<ShopCardProps> = ({
             loading="lazy"
             referrerPolicy="no-referrer"
             onError={(e) => {
-              (e.target as HTMLElement).style.display = 'none';
+              const target = e.currentTarget;
+              if (!target.src.endsWith('/images/store_imtiaz_grocery_1793110437258.jpg')) {
+                target.src = '/images/store_imtiaz_grocery_1793110437258.jpg';
+              }
             }}
           />
 
@@ -115,11 +118,16 @@ export const ShopCard: React.FC<ShopCardProps> = ({
             />
           </button>
 
-          {/* Bottom Overlaid Category Pill */}
-          <div className="absolute bottom-2 left-2.5">
-            <span className="text-[11px] font-bold text-white bg-slate-950/70 backdrop-blur-md px-2.5 py-0.5 rounded-lg border border-white/20">
+          {/* Bottom Overlaid Category Badge */}
+          <div className="absolute bottom-2 left-2.5 right-2.5 flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-bold text-white bg-slate-950/70 backdrop-blur-md px-2.5 py-0.5 rounded-lg border border-white/20 truncate max-w-[70%]">
               {shop.category}
             </span>
+            {shop.subCategory && (
+              <span className="text-[10px] font-semibold text-emerald-100 bg-emerald-950/80 backdrop-blur-md px-2 py-0.5 rounded-lg border border-emerald-400/30 truncate max-w-[40%]">
+                {shop.subCategory}
+              </span>
+            )}
           </div>
         </div>
 
@@ -140,25 +148,32 @@ export const ShopCard: React.FC<ShopCardProps> = ({
           {/* Location & Distance */}
           <div className="flex items-center gap-1 text-slate-500 text-xs font-medium">
             <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span className="truncate">{shop.area}, {shop.city}</span>
+            <span className="truncate">{shop.marketOrBazar || shop.area}, {shop.city}</span>
             <span className="text-slate-300">·</span>
             <span className="text-emerald-700 font-bold shrink-0">{shop.distance} km</span>
           </div>
 
-          {/* Rating & Followers */}
-          <div className="flex items-center gap-2 text-xs text-slate-600">
-            <span className="text-amber-500 font-bold flex items-center gap-0.5">
-              ★ {shop.rating}
-            </span>
-            <span className="text-slate-400">({shop.reviewsCount})</span>
-            {shop.followersCount !== undefined && shop.followersCount > 0 && (
-              <>
-                <span className="text-slate-300">·</span>
-                <span className="text-slate-500 flex items-center gap-1 text-[11px]">
-                  <Users className="w-3 h-3 text-emerald-600" />
-                  {shop.followersCount}
-                </span>
-              </>
+          {/* Opening Hours & Rating */}
+          <div className="flex items-center justify-between gap-2 text-xs text-slate-600">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-500 font-bold flex items-center gap-0.5">
+                ★ {shop.rating}
+              </span>
+              <span className="text-slate-400">({shop.reviewsCount})</span>
+              {shop.followersCount !== undefined && shop.followersCount > 0 && (
+                <>
+                  <span className="text-slate-300">·</span>
+                  <span className="text-slate-500 flex items-center gap-1 text-[11px]">
+                    <Users className="w-3 h-3 text-emerald-600" />
+                    {shop.followersCount}
+                  </span>
+                </>
+              )}
+            </div>
+            {shop.openingHours && (
+              <span className="text-[10px] font-medium text-slate-500 truncate max-w-[125px]" title={shop.openingHours}>
+                {shop.openingHours}
+              </span>
             )}
           </div>
 

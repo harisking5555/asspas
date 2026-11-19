@@ -25,7 +25,7 @@ export const INITIAL_SHOPS: Shop[] = [
       note: 'Fresh daily stock of original Elegancia Mineral Water in cold beverage chillers.'
     },
     tags: ['Wide Range', 'Fresh Produce', 'Home Delivery'],
-    image: '/src/assets/images/store_imtiaz_grocery_1793110437258.jpg',
+    image: '/images/store_imtiaz_grocery_1793110437258.jpg',
     coords: {
       lat: 34.008,
       lng: 71.535,
@@ -70,7 +70,7 @@ export const INITIAL_SHOPS: Shop[] = [
     email: 'care@outfitters.com.pk',
     hasEleganciaWater: false,
     tags: ['Latest Trends', 'Men / Women', 'In-Store Pickup'],
-    image: '/src/assets/images/store_outfitters_clothing_1793110436996.jpg',
+    image: '/images/store_outfitters_clothing_1793110436996.jpg',
     coords: {
       lat: 34.015,
       lng: 71.51,
@@ -108,7 +108,7 @@ export const INITIAL_SHOPS: Shop[] = [
     email: 'samsung.deans@gmail.com',
     hasEleganciaWater: false,
     tags: ['Mobiles', 'Accessories', 'Warranty Support'],
-    image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02560?auto=format&fit=crop&w=600&q=80',
+    image: '/images/shopnear_hero_street_1793110435367.jpg',
     coords: {
       lat: 34.004,
       lng: 71.54,
@@ -152,7 +152,7 @@ export const INITIAL_SHOPS: Shop[] = [
       note: 'Certified hygienic mineral water available 24/7 along with medical grade supplies.'
     },
     tags: ['Medicines', 'Health Care', 'Home Delivery'],
-    image: 'https://images.unsplash.com/photo-1586015555751-63bb77f4322a?auto=format&fit=crop&w=600&q=80',
+    image: '/images/product_elegancia_water_1793110437317.jpg',
     coords: {
       lat: 33.992,
       lng: 71.45,
@@ -196,7 +196,7 @@ export const INITIAL_SHOPS: Shop[] = [
       note: 'Served with authentic Shinwari Karahi, Dum Pukht, and BBQ platters.'
     },
     tags: ['Dine In', 'Takeaway', 'Fast Food'],
-    image: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=600&q=80',
+    image: '/images/shopnear_hero_street_1793110435367.jpg',
     coords: {
       lat: 34.012,
       lng: 71.57,
@@ -234,7 +234,7 @@ export const INITIAL_SHOPS: Shop[] = [
     email: 'bahria.books@gmail.com',
     hasEleganciaWater: false,
     tags: ['Books', 'Stationery', 'Gifts'],
-    image: 'https://images.unsplash.com/photo-1521587760476-6c12a4b040da?auto=format&fit=crop&w=600&q=80',
+    image: '/images/store_imtiaz_grocery_1793110437258.jpg',
     coords: {
       lat: 34.002,
       lng: 71.53,
@@ -278,7 +278,7 @@ export const INITIAL_SHOPS: Shop[] = [
       note: 'Keeps athletes hydrated! Chilled Elegancia mineral water available at the checkout counter.'
     },
     tags: ['Cricket Bats', 'Sports Wear', 'Fitness Gear'],
-    image: '/src/assets/images/store_kamran_sports_1793110437618.jpg',
+    image: '/images/store_kamran_sports_1793110437618.jpg',
     coords: {
       lat: 34.018,
       lng: 71.49,
@@ -316,7 +316,7 @@ export const INITIAL_SHOPS: Shop[] = [
     email: 'salmansports.hayatabad@gmail.com',
     hasEleganciaWater: false,
     tags: ['Trophies', 'Badminton', 'Custom Jerseys'],
-    image: 'https://images.unsplash.com/photo-1584735935682-2f2b69dff9d2?auto=format&fit=crop&w=600&q=80',
+    image: '/images/store_kamran_sports_1793110437618.jpg',
     coords: {
       lat: 33.985,
       lng: 71.44,
@@ -360,7 +360,7 @@ export const INITIAL_SHOPS: Shop[] = [
       note: 'Official primary dispatch hub. Wholesale distributor pricing and free bulk home/office doorstep delivery in Peshawar.'
     },
     tags: ['Elegancia HQ', 'Bulk Wholesale', 'Home & Office Delivery'],
-    image: '/src/assets/images/product_elegancia_water_1793110437317.jpg',
+    image: '/images/product_elegancia_water_1793110437317.jpg',
     coords: {
       lat: 33.98,
       lng: 71.43,
@@ -398,7 +398,7 @@ export const INITIAL_SHOPS: Shop[] = [
     email: 'royaldecor.psh@gmail.com',
     hasEleganciaWater: false,
     tags: ['Curtains', 'Carpets', 'Home Accents'],
-    image: 'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=600&q=80',
+    image: '/images/store_outfitters_clothing_1793110436996.jpg',
     coords: {
       lat: 34.005,
       lng: 71.545,
@@ -428,7 +428,7 @@ export const INITIAL_SHOPS: Shop[] = [
     email: 'glowbeauty.psh@gmail.com',
     hasEleganciaWater: false,
     tags: ['Organic Skincare', 'Perfumes', 'Makeup'],
-    image: 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9?auto=format&fit=crop&w=600&q=80',
+    image: '/images/store_outfitters_clothing_1793110436996.jpg',
     coords: {
       lat: 34.02,
       lng: 71.59,

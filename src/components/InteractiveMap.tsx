@@ -125,9 +125,13 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
         {selectedShop && (
           <div className="absolute right-3 top-16 z-20">
             <a
-              href={`https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
-                `${selectedShop.name}, ${selectedShop.address || selectedShop.area}, ${selectedShop.city}, Pakistan`
-              )}`}
+              href={
+                selectedShop.coords?.lat && selectedShop.coords?.lng
+                  ? `https://www.google.com/maps/dir/?api=1&destination=${selectedShop.coords.lat},${selectedShop.coords.lng}`
+                  : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(
+                      `${selectedShop.name}, ${selectedShop.address || selectedShop.area}, ${selectedShop.city}, Pakistan`
+                    )}`
+              }
               target="_blank"
               rel="noreferrer"
               className="px-3 py-2 bg-slate-900/95 hover:bg-slate-900 text-white rounded-2xl shadow-lg transition-all cursor-pointer flex items-center gap-1.5 text-xs font-bold backdrop-blur-xs"
@@ -150,7 +154,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
               className="flex items-center gap-3 cursor-pointer min-w-0 flex-1"
             >
               <img
-                src={selectedShop.imageUrl || selectedShop.image || 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=200'}
+                src={selectedShop.imageUrl || selectedShop.image || '/images/store_imtiaz_grocery_1793110437258.jpg'}
                 alt={selectedShop.name}
                 className="w-12 h-12 rounded-xl object-cover shrink-0 border border-slate-200"
               />
