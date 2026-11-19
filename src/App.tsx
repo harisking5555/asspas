@@ -229,11 +229,14 @@ export default function App() {
     }
   }, []);
 
-  // Direct Shop deep-linking (?shop=ID) -> opens FullShopProfileView cleanly
+  // Direct Shop deep-linking (?shop=ID or /shop/ID) -> opens FullShopProfileView cleanly
   useEffect(() => {
     if (shops.length > 0) {
       const params = new URLSearchParams(window.location.search);
-      const targetShopId = params.get('shop');
+      let targetShopId = params.get('shop');
+      if (!targetShopId && window.location.pathname.startsWith('/shop/')) {
+        targetShopId = window.location.pathname.replace('/shop/', '').split('/')[0] || null;
+      }
       if (targetShopId) {
         const found = shops.find((s) => s.id === targetShopId);
         if (found) {

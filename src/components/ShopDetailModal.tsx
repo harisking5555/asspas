@@ -147,15 +147,16 @@ export const ShopDetailModal: React.FC<ShopDetailModalProps> = ({
   };
 
   const handleShare = () => {
+    const shareUrl = `${typeof window !== 'undefined' ? window.location.origin : 'https://asspas.store'}/?shop=${shop.id}`;
     if (navigator.share) {
       navigator.share({
         title: shop.name,
         text: `Check out ${shop.name} on asspas.store! Located at ${shop.address}`,
-        url: window.location.href,
+        url: shareUrl,
       }).catch(() => {});
     } else {
       navigator.clipboard.writeText(
-        `${shop.name} - ${shop.address}, ${shop.city} on asspas.store: https://asspas.store/shop/${shop.id}`
+        `${shop.name} - ${shop.address}, ${shop.city} on asspas.store: ${shareUrl}`
       );
       setCopiedLink(true);
       setTimeout(() => setCopiedLink(false), 2500);

@@ -25,26 +25,33 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Users collection
+    // Users collection (allow owner/admin full update, or authenticated referral-chain counter/star increments)
     match /users/{userId} {
       allow read: if true;
       allow create: if isAuthenticated() && request.auth.uid == userId;
-      allow update: if isOwner(userId) || isAdmin();
+      allow update: if isOwner(userId) || isAdmin() || (
+        isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['points', 'referredCount', 'starLevel', 'updatedAt'])
+      );
       allow delete: if isAdmin();
     }
 
-    // Shops collection (Business listings)
+    // Shops collection (allow owner/admin edits, or engagement counters/reviews updates)
     match /shops/{shopId} {
       allow read: if true;
       allow create: if isAuthenticated();
-      allow update: if (isAuthenticated() && resource.data.ownerId == request.auth.uid) || isAdmin();
+      allow update: if (isAuthenticated() && resource.data.ownerId == request.auth.uid) || isAdmin() || (
+        isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reviews', 'reviewsCount', 'rating', 'followersCount', 'unlockedBadges', 'viewsCount', 'updatedAt'])
+      );
       allow delete: if (isAuthenticated() && resource.data.ownerId == request.auth.uid) || isAdmin();
     }
 
-    // Categories collection
+    // Categories collection (authenticated merchants can propose/create custom categories; admin moderates)
     match /categories/{categoryId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAdmin();
     }
 
     // 3x3 Referral tree nodes
@@ -87,6 +94,12 @@ service cloud.firestore {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
       allow delete: if isAdmin();
+    }
+
+    // Public Contact & Shop Complaints collection
+    match /complaints/{complaintId} {
+      allow create: if true;
+      allow read, update, delete: if isAdmin();
     }
 
     // Shop Chats & In-App Messages
