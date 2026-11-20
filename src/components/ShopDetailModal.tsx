@@ -27,6 +27,7 @@ import {
 import { Shop, CatalogItem } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { toggleFollowShop, checkIsFollowing } from '../services/shopService';
+import { resolveExternalImageUrl } from '../data/defaultImages';
 
 interface ShopDetailModalProps {
   shop: Shop | null;
@@ -81,9 +82,10 @@ export const ShopDetailModal: React.FC<ShopDetailModalProps> = ({
   if (!shop) return null;
 
   // Prepare images list (with carousel support)
-  const allImages = shop.images && shop.images.length > 0 
-    ? shop.images 
-    : [shop.image];
+  const allImages =
+    shop.images && shop.images.length > 0
+      ? shop.images.map((img) => resolveExternalImageUrl(img, shop.category))
+      : [resolveExternalImageUrl(shop.imageUrl || shop.image, shop.category)];
 
   const handleNextImage = () => {
     setActiveImageIndex((prev) => (prev + 1) % allImages.length);

@@ -35,6 +35,7 @@ import {
   SpellCheckResult
 } from '../services/categoryService';
 import { MapLocationPicker } from './MapLocationPicker';
+import { DEFAULT_GROCERY_STORE_IMAGE, getCategoryDefaultImage } from '../data/defaultImages';
 
 interface AddShopModalProps {
   isOpen: boolean;
@@ -146,9 +147,7 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
 
   // 9. Photos (Respect admin maxShopImagesAllowed)
   const maxImagesAllowed = adminSettings?.maxShopImagesAllowed || 10;
-  const [imagePreview, setImagePreview] = useState<string>(
-    '/images/store_imtiaz_grocery_1793110437258.jpg'
-  );
+  const [imagePreview, setImagePreview] = useState<string>(DEFAULT_GROCERY_STORE_IMAGE);
   const [additionalImages, setAdditionalImages] = useState<string[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -440,7 +439,10 @@ export const AddShopModal: React.FC<AddShopModalProps> = ({
       setSubmitting(true);
       setErrorMsg(null);
 
-      let finalImageUrl = imagePreview;
+      let finalImageUrl =
+        selectedFile || imagePreview !== DEFAULT_GROCERY_STORE_IMAGE
+          ? imagePreview
+          : getCategoryDefaultImage(category);
       if (selectedFile && finalImageUrl.startsWith('blob:')) {
         try {
           const imgbbRes = await uploadImageToImgBB(selectedFile);

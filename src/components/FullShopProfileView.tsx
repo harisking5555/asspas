@@ -43,6 +43,7 @@ import {
   addShopReviewInDb
 } from '../services/shopService';
 import { uploadImageToImgBB } from '../services/imageUploadService';
+import { resolveExternalImageUrl } from '../data/defaultImages';
 import { DEFAULT_CATEGORIES } from '../services/categoryService';
 
 interface FullShopProfileViewProps {
@@ -151,7 +152,9 @@ export const FullShopProfileView: React.FC<FullShopProfileViewProps> = ({
   const [editWhatsapp, setEditWhatsapp] = useState(shop.whatsapp || '');
   const [editIsOpen, setEditIsOpen] = useState(shop.isOpen !== false);
   const [editImages, setEditImages] = useState<string[]>(
-    shop.images && shop.images.length > 0 ? shop.images : [shop.image || '/images/store_imtiaz_grocery_1793110437258.jpg']
+    shop.images && shop.images.length > 0
+      ? shop.images.map((img) => resolveExternalImageUrl(img, shop.category))
+      : [resolveExternalImageUrl(shop.imageUrl || shop.image, shop.category)]
   );
   const [uploadingShopPhoto, setUploadingShopPhoto] = useState(false);
   const [savingEditShop, setSavingEditShop] = useState(false);
@@ -188,7 +191,10 @@ export const FullShopProfileView: React.FC<FullShopProfileViewProps> = ({
   const [submittingReview, setSubmittingReview] = useState(false);
   const [reviewSuccess, setReviewSuccess] = useState(false);
 
-  const allImages = shop.images && shop.images.length > 0 ? shop.images : [shop.image || '/images/store_imtiaz_grocery_1793110437258.jpg'];
+  const allImages =
+    shop.images && shop.images.length > 0
+      ? shop.images.map((img) => resolveExternalImageUrl(img, shop.category))
+      : [resolveExternalImageUrl(shop.imageUrl || shop.image, shop.category)];
   const maxImagesAllowed = adminSettings?.maxShopImagesAllowed || 10;
 
   const isOwner = Boolean(
@@ -211,7 +217,11 @@ export const FullShopProfileView: React.FC<FullShopProfileViewProps> = ({
     setEditPrimaryIdx(shop.orderPhoneIndex || 0);
     setEditWhatsapp(shop.whatsapp || '');
     setEditIsOpen(shop.isOpen !== false);
-    setEditImages(shop.images && shop.images.length > 0 ? shop.images : [shop.image || '/images/store_imtiaz_grocery_1793110437258.jpg']);
+    setEditImages(
+      shop.images && shop.images.length > 0
+        ? shop.images.map((img) => resolveExternalImageUrl(img, shop.category))
+        : [resolveExternalImageUrl(shop.imageUrl || shop.image, shop.category)]
+    );
 
     if (currentUser) {
       checkIsFollowing(shop.id, currentUser.uid).then((res) => setIsFollowing(res));

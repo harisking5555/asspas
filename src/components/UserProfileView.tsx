@@ -39,6 +39,7 @@ import {
 import { uploadImageToImgBB } from '../services/imageUploadService';
 import { fetchUserSupportTickets, createSupportTicket } from '../services/supportService';
 import { PAKISTAN_REGIONS } from '../data/pakistanRegions';
+import { resolveExternalImageUrl } from '../data/defaultImages';
 
 interface UserProfileViewProps {
   user: UserProfile;
@@ -1070,8 +1071,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 >
                   <div className="relative h-40 bg-slate-100">
                     <img
-                      src={shop.image || '/images/store_imtiaz_grocery_1793110437258.jpg'}
+                      src={resolveExternalImageUrl(shop.imageUrl || shop.image, shop.category)}
                       alt={shop.name}
+                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
                     />
                     <span className="absolute top-3 left-3 bg-slate-900/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
@@ -1157,8 +1159,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                     className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs hover:border-emerald-300 transition-all flex items-center gap-3 p-3"
                   >
                     <img
-                      src={shop.image || '/images/store_imtiaz_grocery_1793110437258.jpg'}
+                      src={resolveExternalImageUrl(shop.imageUrl || shop.image, shop.category)}
                       alt={shop.name}
+                      referrerPolicy="no-referrer"
                       onClick={() => onOpenShopDetails(shop)}
                       className="w-16 h-16 rounded-xl object-cover shrink-0 cursor-pointer"
                     />
@@ -1206,8 +1209,9 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                     className="bg-white rounded-2xl border border-slate-200 p-3 shadow-xs flex items-center gap-3"
                   >
                     <img
-                      src={item.image || shop.image || '/images/store_imtiaz_grocery_1793110437258.jpg'}
+                      src={resolveExternalImageUrl(item.image || shop.imageUrl || shop.image, shop.category)}
                       alt={item.name}
+                      referrerPolicy="no-referrer"
                       onClick={() => onOpenShopDetails(shop)}
                       className="w-16 h-16 rounded-xl object-cover shrink-0 cursor-pointer bg-slate-100"
                     />

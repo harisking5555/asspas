@@ -14,6 +14,11 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { AdminSettings, FollowerThreshold, AuditLogItem, UserProfile } from '../types';
+import {
+  DEFAULT_HERO_MARKET_IMAGE,
+  DEFAULT_ELEGANCIA_WATER_IMAGE,
+  resolveExternalImageUrl,
+} from '../data/defaultImages';
 
 export const DEFAULT_FOLLOWER_THRESHOLDS: FollowerThreshold[] = [
   {
@@ -49,7 +54,7 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
   maxDirectReferrals: 3,
   maintenanceMode: false,
   requireShopApproval: false,
-  heroMarketImage: '/images/shopnear_hero_street_1793110435367.jpg',
+  heroMarketImage: DEFAULT_HERO_MARKET_IMAGE,
   maxShopImagesAllowed: 10,
   shopkeeperCanPost: true,
   dailyPostLimit: 5,
@@ -62,7 +67,7 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
       size: 'Box of 24 Bottles',
       price: 'Rs. 600 / box',
       description: 'On-the-go chilled hydration for retail counters, events, and travelers.',
-      imageUrl: '/images/product_elegancia_water_1793110437317.jpg',
+      imageUrl: DEFAULT_ELEGANCIA_WATER_IMAGE,
     },
     {
       id: 'fp-1500',
@@ -70,7 +75,7 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
       size: 'Shrink of 12 Bottles',
       price: 'Rs. 840 / pack',
       description: 'Ideal for family dining tables, restaurants, and local supermarkets.',
-      imageUrl: '/images/product_elegancia_water_1793110437317.jpg',
+      imageUrl: DEFAULT_ELEGANCIA_WATER_IMAGE,
     },
     {
       id: 'fp-19l',
@@ -78,7 +83,7 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
       size: 'Seal-Packed 19 Litre',
       price: 'Rs. 180 / refill',
       description: 'Pure balanced minerals delivered straight to homes, offices, and clinics.',
-      imageUrl: '/images/product_elegancia_water_1793110437317.jpg',
+      imageUrl: DEFAULT_ELEGANCIA_WATER_IMAGE,
     },
   ],
   customRegions: [],
@@ -87,7 +92,7 @@ export const DEFAULT_ADMIN_SETTINGS: AdminSettings = {
       id: 'ad-1',
       title: 'Elegancia Mineral Water - Pure Hydration for Pakistan',
       description: 'Certified 19L & 1.5L bulk supply for homes, corporate offices & retail shops.',
-      mediaUrl: '/images/product_elegancia_water_1793110437317.jpg',
+      mediaUrl: DEFAULT_ELEGANCIA_WATER_IMAGE,
       mediaType: 'image',
       targetCity: 'All',
       whatsappNumber: '03085599766',
@@ -120,9 +125,24 @@ export async function fetchAdminSettings(): Promise<AdminSettings> {
       new Promise<null>((resolve) => setTimeout(() => resolve(null), 4000)),
     ]);
     if (snap && snap.exists()) {
-      return {
+      const merged = {
         ...DEFAULT_ADMIN_SETTINGS,
         ...(snap.data() as AdminSettings),
+      };
+      return {
+        ...merged,
+        heroMarketImage: resolveExternalImageUrl(merged.heroMarketImage, 'market'),
+        featuredProducts: (merged.featuredProducts || []).map((p) => ({
+          ...p,
+          imageUrl: resolveExternalImageUrl(p.imageUrl, 'water'),
+        })),
+        adsGallery: (merged.adsGallery || []).map((a) => ({
+          ...a,
+          mediaUrl:
+            a.mediaType === 'video'
+              ? a.mediaUrl
+              : resolveExternalImageUrl(a.mediaUrl, 'water'),
+        })),
       };
     }
   } catch (err) {

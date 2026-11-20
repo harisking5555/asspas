@@ -1,16 +1,16 @@
 import React from 'react';
-import { 
-  ShoppingBag, 
-  Shirt, 
-  Smartphone, 
-  Home, 
-  Cross, 
-  BookOpen, 
-  Sparkles, 
-  Trophy, 
-  UtensilsCrossed, 
+import {
+  ShoppingBasket,
+  Shirt,
+  Smartphone,
+  Armchair,
+  Pill,
+  BookOpen,
+  Gem,
+  Dumbbell,
+  UtensilsCrossed,
   ChevronRight,
-  Droplet
+  Droplets
 } from 'lucide-react';
 import { Shop, ShopCategory } from '../types';
 
@@ -39,55 +39,55 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
       category: 'Sports & Toys',
       title: 'Sports & Toys',
       subcategories: ['Cricket Bats (English Willow)', 'Fitness & Gym Gear', 'Footballs & Futsal', 'Badminton Racquets', 'Custom Team Kits', 'Children Toys'],
-      icon: <Trophy className="w-5 h-5 text-emerald-700" />,
+      icon: <Dumbbell className="w-5 h-5 text-emerald-700" strokeWidth={1.65} />,
     },
     {
       category: 'Grocery & Daily Needs',
       title: 'Grocery & Daily Needs',
       subcategories: ['Elegancia Mineral Water', 'Fresh Organic Produce', 'Bakery & Dairy Items', 'Spices & Pulses', 'Beverages & Snacks', 'Home Essentials'],
-      icon: <ShoppingBag className="w-5 h-5 text-emerald-700" />,
+      icon: <ShoppingBasket className="w-5 h-5 text-emerald-700" strokeWidth={1.65} />,
     },
     {
       category: 'Fashion & Clothing',
       title: 'Fashion & Clothing',
       subcategories: ['Men Contemporary Wear', 'Women Pret & Unstitched', 'Traditional Peshawar Chappals', 'Winter Shawls & Jackets', 'Footwear & Boots', 'Accessories'],
-      icon: <Shirt className="w-5 h-5 text-emerald-700" />,
+      icon: <Shirt className="w-5 h-5 text-emerald-700" strokeWidth={1.65} />,
     },
     {
       category: 'Electronics & Mobiles',
       title: 'Electronics & Mobiles',
       subcategories: ['PTA Approved Smartphones', 'Laptops & Computing', 'Audio & AirPods', 'Smart Watches', 'Mobile Repair & Screen', 'Power Banks & Cables'],
-      icon: <Smartphone className="w-5 h-5 text-emerald-700" />,
+      icon: <Smartphone className="w-5 h-5 text-emerald-700" strokeWidth={1.65} />,
     },
     {
       category: 'Pharmacy & Health',
       title: 'Pharmacy & Health',
       subcategories: ['24/7 Emergency Medicines', 'Baby Care & Diapers', 'Health Supplements', 'Blood Pressure & Diabetes Monitors', 'First Aid Kits', 'Hygienic Mineral Water'],
-      icon: <Cross className="w-5 h-5 text-emerald-700" />,
+      icon: <Pill className="w-5 h-5 text-emerald-700" strokeWidth={1.65} />,
     },
     {
       category: 'Food & Restaurants',
       title: 'Food & Restaurants',
       subcategories: ['Shinwari Mutton Karahi', 'Peshawari Chapli Kebabs', 'Dine-In & Takeaway', 'Fast Food & Burgers', 'Traditional Tea & Kahwa', 'Family Platters'],
-      icon: <UtensilsCrossed className="w-5 h-5 text-emerald-700" />,
+      icon: <UtensilsCrossed className="w-5 h-5 text-emerald-700" strokeWidth={1.65} />,
     },
     {
       category: 'Home & Living',
       title: 'Home & Living',
       subcategories: ['Designer Curtains & Drapery', 'Handmade Peshawar Rugs', 'Wall Art & Clocks', 'Kitchenware & Crockery', 'Bedding & Linen', 'Lighting Fixtures'],
-      icon: <Home className="w-5 h-5 text-emerald-700" />,
+      icon: <Armchair className="w-5 h-5 text-emerald-700" strokeWidth={1.65} />,
     },
     {
       category: 'Books & Stationery',
       title: 'Books & Stationery',
       subcategories: ['Medical & Engineering Textbooks', 'Competitive Exam Preparation', 'School Supplies & Uniforms', 'Luxury Pens & Notebooks', 'Art & Craft Materials', 'Novelties & Gifts'],
-      icon: <BookOpen className="w-5 h-5 text-emerald-700" />,
+      icon: <BookOpen className="w-5 h-5 text-emerald-700" strokeWidth={1.65} />,
     },
     {
       category: 'Beauty & Personal Care',
       title: 'Beauty & Personal Care',
       subcategories: ['Original French Perfumes', 'Organic Skincare & Serums', 'Professional Salon Cosmetics', 'Hair Treatments & Oils', 'Personal Grooming Kits', 'Dermatological Creams'],
-      icon: <Sparkles className="w-5 h-5 text-emerald-700" />,
+      icon: <Gem className="w-5 h-5 text-emerald-700" strokeWidth={1.65} />,
     },
   ];
 
@@ -107,7 +107,7 @@ export const CategoriesView: React.FC<CategoriesViewProps> = ({
       <div className="bg-gradient-to-r from-emerald-950 via-emerald-900 to-slate-900 text-white rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm border border-emerald-800/60">
         <div className="flex items-center gap-3">
           <div className="w-12 h-12 rounded-xl bg-emerald-600/30 border border-emerald-400/40 flex items-center justify-center shrink-0">
-            <Droplet className="w-6 h-6 fill-emerald-400 text-emerald-400" />
+            <Droplets className="w-6 h-6 text-emerald-400" strokeWidth={1.75} />
           </div>
           <div>
             <h3 className="font-display font-extrabold text-base">

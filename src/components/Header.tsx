@@ -6,8 +6,8 @@ import {
   ChevronDown,
   Home,
   Store,
-  Grid,
-  Droplet,
+  LayoutGrid,
+  Droplets,
   Gift,
   Heart,
   Info,
@@ -124,49 +124,49 @@ export const Header: React.FC<HeaderProps> = ({
         <nav className="hidden md:flex items-center gap-1 lg:gap-2 text-xs font-medium text-slate-700">
           <button
             onClick={() => handleNav('home')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'home'
-                ? 'bg-emerald-50 text-emerald-800 font-bold shadow-2xs'
+                ? 'bg-emerald-50 text-emerald-800 font-semibold'
                 : 'hover:text-emerald-700 hover:bg-slate-50'
             }`}
           >
-            <Home className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} />
+            <Home className="w-3.5 h-3.5 text-emerald-600" strokeWidth={1.75} />
             <span>Home</span>
           </button>
 
           <button
             onClick={() => handleNav('shops')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'shops'
-                ? 'bg-emerald-50 text-emerald-800 font-bold shadow-2xs'
+                ? 'bg-emerald-50 text-emerald-800 font-semibold'
                 : 'hover:text-emerald-700 hover:bg-slate-50'
             }`}
           >
-            <Store className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} />
+            <Store className="w-3.5 h-3.5 text-emerald-600" strokeWidth={1.75} />
             <span>Shops</span>
           </button>
 
           <button
             onClick={() => handleNav('elegancia')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'elegancia'
-                ? 'bg-emerald-100/80 text-emerald-950 font-bold shadow-2xs'
+                ? 'bg-emerald-100/80 text-emerald-950 font-semibold'
                 : 'text-emerald-800 hover:bg-emerald-50'
             }`}
           >
-            <Droplet className="w-3.5 h-3.5 text-emerald-600 fill-emerald-600" strokeWidth={2} />
+            <Droplets className="w-3.5 h-3.5 text-emerald-600" strokeWidth={1.75} />
             <span>Elegancia Water</span>
           </button>
 
           <button
             onClick={() => handleNav('favorites')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all cursor-pointer whitespace-nowrap ${
               activeTab === 'favorites'
-                ? 'bg-emerald-50 text-emerald-800 font-bold shadow-2xs'
+                ? 'bg-emerald-50 text-emerald-800 font-semibold'
                 : 'hover:text-emerald-700 hover:bg-slate-50'
             }`}
           >
-            <Heart className="w-3.5 h-3.5 text-emerald-600" strokeWidth={2} />
+            <Heart className="w-3.5 h-3.5 text-emerald-600" strokeWidth={1.75} />
             <span>Favorites</span>
             {favoritesCount > 0 && (
               <span className="bg-emerald-100 text-emerald-900 text-[10px] font-bold px-1.5 py-0.2 rounded-full tabular-nums">
@@ -224,6 +224,7 @@ export const Header: React.FC<HeaderProps> = ({
               <img
                 src={userProfile?.photoURL || currentUser.photoURL || ''}
                 alt=""
+                referrerPolicy="no-referrer"
                 className="w-5 h-5 rounded-full object-cover ring-1 ring-emerald-500 shrink-0"
               />
             ) : (
@@ -358,7 +359,7 @@ export const Header: React.FC<HeaderProps> = ({
                           activeTab === 'categories' ? 'text-emerald-800 bg-emerald-50/90 font-bold' : 'text-slate-700 hover:bg-slate-50'
                         }`}
                       >
-                        <Grid className="w-4 h-4 text-emerald-600" strokeWidth={2} />
+                        <LayoutGrid className="w-4 h-4 text-emerald-600" strokeWidth={1.75} />
                         <span>Goods &amp; Services</span>
                       </button>
 
@@ -368,7 +369,7 @@ export const Header: React.FC<HeaderProps> = ({
                           activeTab === 'elegancia' ? 'text-emerald-950 bg-emerald-100 font-black' : 'text-emerald-900 bg-emerald-50/50 hover:bg-emerald-50'
                         }`}
                       >
-                        <Droplet className="w-4 h-4 text-emerald-600 fill-emerald-600" strokeWidth={2} />
+                        <Droplets className="w-4 h-4 text-emerald-600" strokeWidth={1.75} />
                         <div className="flex-1">
                           <div className="leading-tight flex items-center gap-1.5">
                             <span>Elegancia Mineral Water</span>

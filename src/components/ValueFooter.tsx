@@ -1,12 +1,10 @@
 import React from 'react';
-import { 
-  MapPin, 
-  ShieldCheck, 
-  MessageCircle, 
-  Droplet, 
-  Sparkles, 
-  Heart,
-  Store
+import {
+  MapPin,
+  ShieldCheck,
+  MessageCircle,
+  Droplets,
+  Award,
 } from 'lucide-react';
 import { MainNavTab } from '../types';
 
@@ -26,54 +24,54 @@ export const ValueFooter: React.FC<ValueFooterProps> = ({
   onOpenContactModal,
 }) => {
   return (
-    <footer className="bg-slate-900 text-slate-300 border-t border-slate-800 mt-12 pb-20 lg:pb-8">
+    <footer className="bg-slate-900 text-slate-300 border-t border-slate-800 mt-14 pb-20 lg:pb-10">
       {/* 4 Trust Value Pillars */}
-      <div className="border-b border-slate-800 py-5 w-full">
-        <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
-              <MapPin className="w-4 h-4" />
+      <div className="border-b border-slate-800 py-7 w-full">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/25">
+              <MapPin className="w-4.5 h-4.5" strokeWidth={1.75} />
             </div>
             <div>
-              <h5 className="font-bold text-white text-xs">Hyperlocal Radius</h5>
-              <p className="text-[10px] text-slate-400">Within 500m - 10km</p>
+              <h5 className="font-semibold text-white text-xs">Hyperlocal Radius</h5>
+              <p className="text-[11px] text-slate-400">Within 500m - 10km</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
-              <ShieldCheck className="w-4 h-4" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/25">
+              <ShieldCheck className="w-4.5 h-4.5" strokeWidth={1.75} />
             </div>
             <div>
-              <h5 className="font-bold text-white text-xs">100% Verified</h5>
-              <p className="text-[10px] text-slate-400">Genuine local shopkeepers</p>
+              <h5 className="font-semibold text-white text-xs">100% Verified</h5>
+              <p className="text-[11px] text-slate-400">Genuine local shopkeepers</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
-              <Droplet className="w-4 h-4 fill-emerald-400 text-emerald-400" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/25">
+              <Droplets className="w-4.5 h-4.5 text-emerald-400" strokeWidth={1.75} />
             </div>
             <div>
-              <h5 className="font-bold text-white text-xs">Elegancia Water</h5>
-              <p className="text-[10px] text-slate-400">Official Peshawar project</p>
+              <h5 className="font-semibold text-white text-xs">Elegancia Water</h5>
+              <p className="text-[11px] text-slate-400">Official Peshawar project</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
-              <Sparkles className="w-4 h-4 text-emerald-400" />
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/25">
+              <Award className="w-4.5 h-4.5 text-emerald-400" strokeWidth={1.75} />
             </div>
             <div>
-              <h5 className="font-bold text-white text-xs">Refer & Earn</h5>
-              <p className="text-[10px] text-slate-400">50 Pts referral bonus</p>
+              <h5 className="font-semibold text-white text-xs">Refer &amp; Earn</h5>
+              <p className="text-[11px] text-slate-400">50 PTS referral bonus</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Multi-column Footer */}
-      <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 py-8 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 text-xs">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-8 text-xs">
         {/* Col 1: Brand & Bio */}
         <div className="space-y-3">
           <div className="flex items-center">

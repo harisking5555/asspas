@@ -16,6 +16,7 @@ import { db } from '../lib/firebase';
 import { Shop, GoodsOrServiceType } from '../types';
 import { INITIAL_SHOPS } from '../data/mockShops';
 import { DEFAULT_FOLLOWER_THRESHOLDS } from './adminService';
+import { resolveExternalImageUrl } from '../data/defaultImages';
 
 /**
  * Recursively strips any `undefined` keys/values before Firestore writes
@@ -96,9 +97,11 @@ export async function fetchShopsFromDb(): Promise<Shop[]> {
             eleganciaDetails: data.eleganciaDetails || undefined,
             catalog: data.catalog || [],
             tags: data.tags || [],
-            image: data.image || '/images/store_imtiaz_grocery_1793110437258.jpg',
-            imageUrl: data.imageUrl || data.image || '',
-            images: data.images || [],
+            image: resolveExternalImageUrl(data.image, data.category),
+            imageUrl: resolveExternalImageUrl(data.imageUrl || data.image, data.category),
+            images: Array.isArray(data.images)
+              ? data.images.map((img: string) => resolveExternalImageUrl(img, data.category))
+              : [],
             businessNature: data.businessNature || '',
             coords: data.coords || { lat: 34.0151, lng: 71.5249, mapX: 50, mapY: 50 },
             verified: !!data.verified,

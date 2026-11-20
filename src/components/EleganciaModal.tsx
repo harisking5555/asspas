@@ -9,6 +9,7 @@ import {
   Truck
 } from 'lucide-react';
 import { Shop } from '../types';
+import { DEFAULT_ELEGANCIA_WATER_IMAGE } from '../data/defaultImages';
 
 interface EleganciaModalProps {
   isOpen: boolean;
@@ -40,7 +41,7 @@ export const EleganciaModal: React.FC<EleganciaModalProps> = ({
         {/* Banner with Pure Water Image */}
         <div className="relative h-48 sm:h-56 bg-slate-900 shrink-0">
           <img
-            src="/images/product_elegancia_water_1793110437317.jpg"
+            src={DEFAULT_ELEGANCIA_WATER_IMAGE}
             alt="Elegancia Mineral Water"
             className="w-full h-full object-cover opacity-85"
             referrerPolicy="no-referrer"

@@ -12,6 +12,7 @@ import {
   Store
 } from 'lucide-react';
 import { Shop } from '../types';
+import { resolveExternalImageUrl } from '../data/defaultImages';
 
 interface InteractiveMapProps {
   shops: Shop[];
@@ -154,8 +155,9 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({
               className="flex items-center gap-3 cursor-pointer min-w-0 flex-1"
             >
               <img
-                src={selectedShop.imageUrl || selectedShop.image || '/images/store_imtiaz_grocery_1793110437258.jpg'}
+                src={resolveExternalImageUrl(selectedShop.imageUrl || selectedShop.image, selectedShop.category)}
                 alt={selectedShop.name}
+                referrerPolicy="no-referrer"
                 className="w-12 h-12 rounded-xl object-cover shrink-0 border border-slate-200"
               />
               <div className="min-w-0">

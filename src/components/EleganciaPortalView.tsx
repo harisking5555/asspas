@@ -10,6 +10,7 @@ import {
   Send
 } from 'lucide-react';
 import { Shop } from '../types';
+import { DEFAULT_ELEGANCIA_WATER_IMAGE } from '../data/defaultImages';
 
 interface EleganciaPortalViewProps {
   stockistShops: Shop[];
@@ -122,8 +123,9 @@ export const EleganciaPortalView: React.FC<EleganciaPortalViewProps> = ({
         {/* Product photo float */}
         <div className="hidden lg:block absolute right-8 top-1/2 -translate-y-1/2 w-80 h-72 rounded-2xl overflow-hidden border-2 border-emerald-400/40 shadow-2xl">
           <img
-            src="/images/product_elegancia_water_1793110437317.jpg"
+            src={DEFAULT_ELEGANCIA_WATER_IMAGE}
             alt="Elegancia Pure Mineral Water"
+            referrerPolicy="no-referrer"
             className="w-full h-full object-cover"
           />
         </div>

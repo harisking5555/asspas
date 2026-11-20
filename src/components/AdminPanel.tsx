@@ -70,6 +70,11 @@ import {
   fetchAllPointsLedgerFromDb,
 } from '../services/adminService';
 import {
+  DEFAULT_HERO_MARKET_IMAGE,
+  DEFAULT_ELEGANCIA_WATER_IMAGE,
+  resolveExternalImageUrl,
+} from '../data/defaultImages';
+import {
   DEFAULT_CATEGORIES,
   fetchCategoriesFromDb,
   saveCustomCategoryToDb,
@@ -196,7 +201,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [newProductSize, setNewProductSize] = useState('');
   const [newProductPrice, setNewProductPrice] = useState('');
   const [newProductDesc, setNewProductDesc] = useState('');
-  const [newProductImg, setNewProductImg] = useState('/images/product_elegancia_water_1793110437317.jpg');
+  const [newProductImg, setNewProductImg] = useState(DEFAULT_ELEGANCIA_WATER_IMAGE);
   const [uploadingProductImg, setUploadingProductImg] = useState(false);
 
   const [newAdTitle, setNewAdTitle] = useState('');
@@ -2120,12 +2125,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                           <td className="p-3">
                             <div className="flex items-center gap-2">
                               <img
-                                src={
-                                  shop.imageUrl ||
-                                  shop.image ||
-                                  '/images/store_imtiaz_grocery_1793110437258.jpg'
-                                }
+                                src={resolveExternalImageUrl(shop.imageUrl || shop.image, shop.category)}
                                 alt={shop.name}
+                                referrerPolicy="no-referrer"
                                 className="w-8 h-8 rounded-lg object-cover shrink-0"
                               />
                               <div>
@@ -2598,11 +2600,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                   <div className="md:col-span-1 h-36 rounded-2xl overflow-hidden border border-slate-200 bg-slate-100">
                     <img
-                      src={
-                        adminSettings.heroMarketImage ||
-                        '/images/shopnear_hero_street_1793110435367.jpg'
-                      }
+                      src={resolveExternalImageUrl(adminSettings.heroMarketImage, 'market')}
                       alt="Hero Regional Market"
+                      referrerPolicy="no-referrer"
                       className="w-full h-full object-cover"
                     />
                   </div>
@@ -2613,7 +2613,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       onChange={(e) =>
                         setAdminSettings({ ...adminSettings, heroMarketImage: e.target.value })
                       }
-                      placeholder="/images/shopnear_hero_street_1793110435367.jpg"
+                      placeholder={DEFAULT_HERO_MARKET_IMAGE}
                       className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs"
                     />
                     <div className="flex flex-wrap gap-2">
@@ -2639,7 +2639,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         onClick={() =>
                           setAdminSettings({
                             ...adminSettings,
-                            heroMarketImage: '/images/shopnear_hero_street_1793110435367.jpg',
+                            heroMarketImage: DEFAULT_HERO_MARKET_IMAGE,
                           })
                         }
                         className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl cursor-pointer"
@@ -2758,8 +2758,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       className="p-3 rounded-xl border border-slate-200 flex items-center gap-2.5"
                     >
                       <img
-                        src={prod.imageUrl || '/images/product_elegancia_water_1793110437317.jpg'}
+                        src={resolveExternalImageUrl(prod.imageUrl, 'water')}
                         alt={prod.name}
+                        referrerPolicy="no-referrer"
                         className="w-12 h-12 rounded-lg object-cover shrink-0"
                       />
                       <div className="flex-1 min-w-0">

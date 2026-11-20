@@ -35,7 +35,6 @@ import { INITIAL_SHOPS } from './data/mockShops';
 import { CityInfo, getRegionsWithCustom } from './data/pakistanRegions';
 import { Header } from './components/Header';
 import { HeroSection } from './components/HeroSection';
-import { AppSlider } from './components/AppSlider';
 import { CategoryBar } from './components/CategoryBar';
 import { FilterSidebar } from './components/FilterSidebar';
 import { ShopCard } from './components/ShopCard';
@@ -59,6 +58,7 @@ import { AboutModal } from './components/AboutModal';
 import { ContactModal } from './components/ContactModal';
 import { AuthModal } from './components/AuthModal';
 import { InstallShortcutModal } from './components/InstallShortcutModal';
+import { DEFAULT_ELEGANCIA_WATER_IMAGE, resolveExternalImageUrl } from './data/defaultImages';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { AdminPanel } from './components/AdminPanel';
 import { ValueFooter } from './components/ValueFooter';
@@ -353,7 +353,7 @@ export default function App() {
       title: 'Elegancia Mineral Water · Certified Pure Hydration',
       description:
         'Official premium water supply partner for homes, businesses, and restaurants across Pakistan.',
-      mediaUrl: '/images/product_elegancia_water_1793110437317.jpg',
+      mediaUrl: DEFAULT_ELEGANCIA_WATER_IMAGE,
       mediaType: 'image',
       targetCity: 'All',
       whatsappNumber: '03085599766',
@@ -750,20 +750,8 @@ export default function App() {
             heroImageUrl={adminSettings.heroMarketImage}
           />
 
-          {/* Promotion Slider Banner */}
-          <div className="w-full max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8 pt-4 pb-2">
-            <AppSlider
-              onOpenElegancia={() => setIsEleganciaModalOpen(true)}
-              onOpenRewards={() => handleSelectTab('rewards')}
-              onExploreSports={() => {
-                setSelectedCategory('Sports & Toys');
-              }}
-              onOpenAddShop={() => handleOpenAddShop(false)}
-            />
-          </div>
-
           {/* Category Bar */}
-          <div className="w-full my-1">
+          <div className="w-full">
             <CategoryBar
               selectedCategory={selectedCategory as ShopCategory}
               onSelectCategory={setSelectedCategory}
@@ -772,32 +760,7 @@ export default function App() {
             />
           </div>
 
-          {/* Featured Ads, Products & Top Shops Showcase */}
-          <HomepageGallery
-            ads={
-              adminSettings.adsGallery && adminSettings.adsGallery.length > 0
-                ? adminSettings.adsGallery
-                : fallbackAds
-            }
-            shops={visibleShops}
-            activeCity={activeCity}
-            activeProvince={selectedProvince !== 'All Provinces' ? selectedProvince : ''}
-            onSelectShop={(sId) => {
-              const found = visibleShops.find((s) => s.id === sId);
-              if (found) handleOpenFullShop(found);
-            }}
-            onOpenChat={(phone) => {
-              const matchedShop =
-                visibleShops.find(
-                  (s) =>
-                    s.phone.includes(phone) || (s.orderPhone && s.orderPhone.includes(phone))
-                ) || visibleShops[0];
-              if (matchedShop) setActiveChatShop(matchedShop);
-            }}
-            featuredBrandName={adminSettings.featuredBrandName}
-            featuredBrandActive={adminSettings.featuredBrandActive}
-            featuredProducts={adminSettings.featuredProducts}
-          />
+          <div className="pt-6" />
 
           {/* Active Filter Pill Summary */}
           {(selectedProvince !== 'All Provinces' ||
@@ -1242,6 +1205,33 @@ export default function App() {
               </div>
             </div>
           </main>
+
+          {/* Featured Partner & Curated Products Showcase (Placed below main catalog for airy above-the-fold layout) */}
+          <HomepageGallery
+            ads={
+              adminSettings.adsGallery && adminSettings.adsGallery.length > 0
+                ? adminSettings.adsGallery
+                : fallbackAds
+            }
+            shops={visibleShops}
+            activeCity={activeCity}
+            activeProvince={selectedProvince !== 'All Provinces' ? selectedProvince : ''}
+            onSelectShop={(sId) => {
+              const found = visibleShops.find((s) => s.id === sId);
+              if (found) handleOpenFullShop(found);
+            }}
+            onOpenChat={(phone) => {
+              const matchedShop =
+                visibleShops.find(
+                  (s) =>
+                    s.phone.includes(phone) || (s.orderPhone && s.orderPhone.includes(phone))
+                ) || visibleShops[0];
+              if (matchedShop) setActiveChatShop(matchedShop);
+            }}
+            featuredBrandName={adminSettings.featuredBrandName}
+            featuredBrandActive={adminSettings.featuredBrandActive}
+            featuredProducts={adminSettings.featuredProducts}
+          />
         </div>
       )}
 
@@ -1361,8 +1351,9 @@ export default function App() {
                   >
                     {item.image ? (
                       <img
-                        src={item.image}
+                        src={resolveExternalImageUrl(item.image, shop.category)}
                         alt={item.name}
+                        referrerPolicy="no-referrer"
                         className="w-16 h-16 rounded-xl object-cover shrink-0 border border-slate-100"
                       />
                     ) : (

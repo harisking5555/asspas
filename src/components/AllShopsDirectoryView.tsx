@@ -8,6 +8,7 @@ import {
   Search
 } from 'lucide-react';
 import { Shop } from '../types';
+import { resolveExternalImageUrl } from '../data/defaultImages';
 
 interface AllShopsDirectoryViewProps {
   shops: Shop[];
@@ -208,7 +209,7 @@ export const AllShopsDirectoryView: React.FC<AllShopsDirectoryViewProps> = ({
               <div>
                 <div className="relative h-44 w-full bg-slate-100 overflow-hidden">
                   <img
-                    src={shop.image}
+                    src={resolveExternalImageUrl(shop.imageUrl || shop.image, shop.category)}
                     alt={shop.name}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     referrerPolicy="no-referrer"
@@ -303,8 +304,9 @@ export const AllShopsDirectoryView: React.FC<AllShopsDirectoryViewProps> = ({
                   >
                     <td className="p-3.5 font-bold text-slate-900 flex items-center gap-2.5">
                       <img
-                        src={shop.image}
+                        src={resolveExternalImageUrl(shop.imageUrl || shop.image, shop.category)}
                         alt={shop.name}
+                        referrerPolicy="no-referrer"
                         className="w-9 h-9 rounded-lg object-cover shrink-0"
                       />
                       <div>

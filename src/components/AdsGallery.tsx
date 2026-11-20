@@ -10,6 +10,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { PlatformAd, Shop } from '../types';
+import { DEFAULT_ELEGANCIA_WATER_IMAGE, resolveExternalImageUrl } from '../data/defaultImages';
 
 interface AdsGalleryProps {
   ads: PlatformAd[];
@@ -62,15 +63,16 @@ export const AdsGallery: React.FC<AdsGalleryProps> = ({
             <div className="relative w-full h-full flex items-center justify-center bg-black">
               <video
                 src={currentAd.mediaUrl}
-                poster="/images/product_elegancia_water_1793110437317.jpg"
+                poster={DEFAULT_ELEGANCIA_WATER_IMAGE}
                 controls
                 className="w-full h-full object-cover"
               />
             </div>
           ) : (
             <img
-              src={currentAd.mediaUrl}
+              src={resolveExternalImageUrl(currentAd.mediaUrl, 'water')}
               alt={currentAd.title}
+              referrerPolicy="no-referrer"
               className="w-full h-full object-cover opacity-90 transition-transform duration-500 hover:scale-102"
             />
           )}
